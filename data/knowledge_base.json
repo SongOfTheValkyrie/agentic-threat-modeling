@@ -1,0 +1,185 @@
+{
+  "description": "Curated security knowledge corpus for the fixed RAG workflow. Snippet texts are paraphrased from public frameworks (STRIDE, OWASP Top 10 2021, MITRE CWE, and CIS/AWS hardening guidance); the `source` field records the originating reference for traceability. The corpus is deliberately broader than the benchmark architectures, so several snippets (e.g. injection, insecure design, integrity failures) do not map onto any single ground-truth threat. This forces retrieval to select relevant knowledge rather than trivially echo the ground truth.",
+  "snippets": [
+    {
+      "id": "kb_missing_authn",
+      "title": "Missing authentication for critical functions",
+      "text": "When a sensitive function can be reached without proving identity, attackers can invoke it directly. Require authentication on every privileged or state-changing operation, not just at the perimeter.",
+      "source": "CWE-306; OWASP A07:2021",
+      "stride_categories": ["spoofing", "elevation_of_privilege"],
+      "applies_to": ["web_api", "service", "gateway", "auth", "unauthenticated_flow"],
+      "keywords": ["authentication", "login", "identity", "unauthenticated", "credentials"]
+    },
+    {
+      "id": "kb_missing_authz",
+      "title": "Missing or broken authorization",
+      "text": "Authenticated users may still access resources beyond their rights when authorization checks are absent or flawed. Enforce least-privilege access decisions server-side on every request.",
+      "source": "CWE-862; OWASP A01:2021",
+      "stride_categories": ["elevation_of_privilege", "information_disclosure"],
+      "applies_to": ["web_api", "service", "gateway", "data_store"],
+      "keywords": ["authorization", "access control", "least privilege", "roles", "scopes", "IDOR"]
+    },
+    {
+      "id": "kb_improper_privilege",
+      "title": "Improper privilege management",
+      "text": "Assigning components or identities more privilege than they need turns any single compromise into a broad one. Scope roles narrowly and separate duties.",
+      "source": "CWE-269; OWASP A01:2021",
+      "stride_categories": ["elevation_of_privilege"],
+      "applies_to": ["compute", "service", "iam_role", "over_privileged"],
+      "keywords": ["privilege", "iam", "admin", "role", "over-privileged", "account-wide"]
+    },
+    {
+      "id": "kb_cleartext_transmission",
+      "title": "Cleartext transmission of sensitive data",
+      "text": "Data sent over an unencrypted channel can be read or altered by anyone able to observe the network path. Use TLS for all sensitive traffic, including internal service-to-service links.",
+      "source": "CWE-319; OWASP A02:2021",
+      "stride_categories": ["information_disclosure", "tampering", "spoofing"],
+      "applies_to": ["unencrypted_flow", "data_flow", "cache", "message_broker"],
+      "keywords": ["encryption in transit", "tls", "cleartext", "sniffing", "mitm"]
+    },
+    {
+      "id": "kb_cleartext_storage",
+      "title": "Missing encryption of stored sensitive data",
+      "text": "Sensitive data stored without encryption is exposed through backups, snapshots, disk theft, or misconfiguration. Enable encryption at rest and manage keys separately from the data.",
+      "source": "CWE-311; CWE-312; OWASP A02:2021",
+      "stride_categories": ["information_disclosure"],
+      "applies_to": ["data_store", "object_store", "cache", "stores_sensitive_data", "encryption_at_rest"],
+      "keywords": ["encryption at rest", "backups", "snapshots", "sensitive data", "kms"]
+    },
+    {
+      "id": "kb_object_store_public",
+      "title": "Publicly accessible object storage",
+      "text": "Object storage that permits public access can expose all its contents to the internet. Keep public access blocked by default and grant reads only through scoped, audited policies.",
+      "source": "CIS AWS Foundations (S3 Block Public Access); OWASP A05:2021",
+      "stride_categories": ["information_disclosure"],
+      "applies_to": ["object_store", "public_access", "stores_sensitive_data"],
+      "keywords": ["s3", "bucket", "public access", "block public access", "exposure"]
+    },
+    {
+      "id": "kb_object_store_integrity",
+      "title": "Object storage without versioning or write controls",
+      "text": "Without versioning and tight write permissions, objects can be overwritten or deleted with no recovery path. Enable versioning and restrict writes to trusted identities.",
+      "source": "CIS AWS Foundations (S3 versioning); OWASP A08:2021",
+      "stride_categories": ["tampering"],
+      "applies_to": ["object_store", "versioning", "public_access"],
+      "keywords": ["versioning", "object lock", "overwrite", "delete", "immutability"]
+    },
+    {
+      "id": "kb_insufficient_logging",
+      "title": "Insufficient logging and monitoring",
+      "text": "When security-relevant events are not recorded or retained, attacks are hard to detect and actions cannot be attributed after the fact. Log access to sensitive resources and protect logs from tampering.",
+      "source": "CWE-778; OWASP A09:2021",
+      "stride_categories": ["repudiation"],
+      "applies_to": ["data_store", "object_store", "service", "monitoring", "access_logging", "audit_logging"],
+      "keywords": ["logging", "audit", "monitoring", "retention", "attribution", "forensics"]
+    },
+    {
+      "id": "kb_no_rate_limit",
+      "title": "Resource allocation without limits or throttling",
+      "text": "Endpoints that accept requests without rate limits or quotas can be overwhelmed, denying service to legitimate users. Apply rate limiting, quotas, and timeouts at entry points.",
+      "source": "CWE-770; OWASP A04:2021",
+      "stride_categories": ["denial_of_service"],
+      "applies_to": ["web_api", "gateway", "service", "rate_limiting", "internet_exposed"],
+      "keywords": ["rate limiting", "throttling", "quota", "dos", "flood", "denial of service"]
+    },
+    {
+      "id": "kb_ssrf_metadata",
+      "title": "SSRF and instance metadata credential theft",
+      "text": "Server-side request forgery can trick a workload into reading its cloud instance metadata and stealing its role credentials. Require the hardened metadata service (IMDSv2) and block internal metadata paths.",
+      "source": "CWE-918; OWASP A10:2021",
+      "stride_categories": ["information_disclosure", "elevation_of_privilege"],
+      "applies_to": ["compute", "service", "instance_metadata", "web_api"],
+      "keywords": ["ssrf", "metadata", "imdsv2", "credential theft", "169.254.169.254"]
+    },
+    {
+      "id": "kb_public_endpoint_spoofing",
+      "title": "Internet-exposed endpoints and impersonation",
+      "text": "Any endpoint reachable from the internet is a target for clients impersonating legitimate callers or replaying captured tokens. Validate tokens on every request and check issuer and audience.",
+      "source": "STRIDE (Spoofing); OWASP A07:2021",
+      "stride_categories": ["spoofing"],
+      "applies_to": ["web_api", "gateway", "auth", "internet_exposed"],
+      "keywords": ["impersonation", "token replay", "public endpoint", "internet exposed"]
+    },
+    {
+      "id": "kb_input_validation_injection",
+      "title": "Injection via unvalidated input",
+      "text": "Untrusted input mixed into queries or commands enables injection attacks. Validate against strict schemas and use parameterized queries rather than string concatenation.",
+      "source": "CWE-89; OWASP A03:2021",
+      "stride_categories": ["tampering", "elevation_of_privilege"],
+      "applies_to": ["web_api", "service", "data_store"],
+      "keywords": ["injection", "sql injection", "input validation", "parameterized", "sanitization"]
+    },
+    {
+      "id": "kb_message_broker_authz",
+      "title": "Unrestricted publish/subscribe on message brokers",
+      "text": "Brokers that let any client publish or subscribe allow forged events and eavesdropping on shared queues. Authenticate producers and consumers and authorize per-queue access.",
+      "source": "STRIDE (Tampering/Information Disclosure); CWE-862",
+      "stride_categories": ["tampering", "information_disclosure", "spoofing"],
+      "applies_to": ["message_broker", "queue"],
+      "keywords": ["message queue", "broker", "publish", "subscribe", "forged events", "amqp", "kafka"]
+    },
+    {
+      "id": "kb_shared_cache_poisoning",
+      "title": "Shared cache poisoning and session hijacking",
+      "text": "A cache shared by multiple services with no authentication lets one compromised service read or overwrite another's entries, enabling session hijacking. Require cache auth and namespace keys per service.",
+      "source": "STRIDE (Tampering/Elevation of Privilege); CWE-862",
+      "stride_categories": ["tampering", "elevation_of_privilege", "information_disclosure"],
+      "applies_to": ["cache", "session_store"],
+      "keywords": ["cache", "redis", "poisoning", "session hijacking", "shared", "namespace"]
+    },
+    {
+      "id": "kb_third_party_data_flow",
+      "title": "Sensitive data crossing to third parties",
+      "text": "Data sent across a trust boundary to an external provider can leak through misrouting, logging, or provider compromise. Minimize and tokenize transmitted data and avoid logging payloads.",
+      "source": "STRIDE (Information Disclosure); OWASP A08:2021",
+      "stride_categories": ["information_disclosure"],
+      "applies_to": ["external_service", "data_flow", "third_party", "payment"],
+      "keywords": ["third party", "trust boundary", "tokenization", "data minimization", "external provider"]
+    },
+    {
+      "id": "kb_repudiation_audit",
+      "title": "Repudiation without audit trails",
+      "text": "Without tamper-evident, timestamped audit trails, actors can deny having performed sensitive actions and investigations stall. Record signed provenance for security-relevant operations.",
+      "source": "STRIDE (Repudiation); CWE-778",
+      "stride_categories": ["repudiation"],
+      "applies_to": ["web_api", "data_store", "service"],
+      "keywords": ["repudiation", "audit trail", "non-repudiation", "provenance", "timestamp"]
+    },
+    {
+      "id": "kb_security_misconfig",
+      "title": "Security misconfiguration",
+      "text": "Default credentials, unnecessary features, verbose errors, and permissive defaults widen the attack surface. Harden configurations and disable what is not required.",
+      "source": "OWASP A05:2021",
+      "stride_categories": ["information_disclosure", "elevation_of_privilege"],
+      "applies_to": ["service", "web_api", "compute", "misconfiguration"],
+      "keywords": ["misconfiguration", "default credentials", "hardening", "verbose errors", "attack surface"]
+    },
+    {
+      "id": "kb_insecure_design",
+      "title": "Insecure design and missing threat modeling",
+      "text": "Some risks stem from missing security controls in the design itself rather than implementation bugs. Threat model early and apply secure design patterns and reference architectures.",
+      "source": "OWASP A04:2021",
+      "stride_categories": ["tampering", "elevation_of_privilege"],
+      "applies_to": ["architecture", "design"],
+      "keywords": ["insecure design", "threat modeling", "secure design", "reference architecture"]
+    },
+    {
+      "id": "kb_integrity_failures",
+      "title": "Software and data integrity failures",
+      "text": "Trusting unsigned updates, plugins, or data pipelines lets attackers inject malicious content. Verify integrity with signatures and trusted sources before use.",
+      "source": "OWASP A08:2021",
+      "stride_categories": ["tampering"],
+      "applies_to": ["service", "compute", "data_flow", "pipeline"],
+      "keywords": ["integrity", "signing", "supply chain", "unsigned", "verification"]
+    },
+    {
+      "id": "kb_weak_authentication",
+      "title": "Weak authentication and credential attacks",
+      "text": "Authentication services without MFA or lockout are exposed to credential stuffing and brute force. Enforce MFA, rate-limit login attempts, and detect anomalies.",
+      "source": "CWE-306; OWASP A07:2021",
+      "stride_categories": ["spoofing", "denial_of_service"],
+      "applies_to": ["auth", "service", "internet_exposed"],
+      "keywords": ["mfa", "credential stuffing", "brute force", "account lockout", "login"]
+    }
+  ]
+}
