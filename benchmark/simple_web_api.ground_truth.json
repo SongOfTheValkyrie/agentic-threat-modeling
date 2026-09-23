@@ -1,0 +1,78 @@
+{
+  "architecture_id": "simple_web_api",
+  "description": "Manually curated STRIDE ground truth for the Simple Web API architecture. Each threat is keyed by its target (component_id or data_flow_id) plus STRIDE category; that (target, category) pair is the intended matching key for evaluation. The api_to_db flow is intentionally well-secured (TLS, authenticated, encrypted) and therefore has no ground-truth threats, so it can surface false positives.",
+  "threats": [
+    {
+      "id": "api_spoofing",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The public API is internet-exposed and can be targeted by attackers impersonating legitimate clients or bypassing authentication.",
+      "mitigation": "Enforce strong authentication (e.g. OAuth2/OIDC) and validate credentials on every request.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "api_tampering",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Being internet-exposed, the API can receive manipulated or malicious requests (e.g. parameter tampering, injection payloads).",
+      "mitigation": "Validate and sanitize all inputs, use parameterized queries, and apply strict schema validation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "api_repudiation",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Without sufficient audit logging, clients can deny having performed actions against the public API.",
+      "mitigation": "Log authenticated requests with tamper-evident, timestamped audit trails.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "api_denial_of_service",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "denial_of_service",
+      "description": "As a public internet-facing endpoint, the API is exposed to volumetric or application-layer denial-of-service attacks.",
+      "mitigation": "Apply rate limiting, request throttling, timeouts, and upstream DDoS protection.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "api_elevation_of_privilege",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "Flaws in authorization logic could let an authenticated client access resources or operations beyond its privileges.",
+      "mitigation": "Enforce least-privilege authorization checks on every endpoint and separate roles/scopes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "db_information_disclosure",
+      "component_id": "db",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The customer database stores sensitive data that could be exposed through misconfiguration, backups, or compromised credentials.",
+      "mitigation": "Encrypt data at rest, restrict network and account access, and manage secrets securely.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "db_tampering",
+      "component_id": "db",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Sensitive customer records could be modified without authorization if database access controls are weak.",
+      "mitigation": "Enforce least-privilege database accounts and integrity constraints; monitor write access.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "db_repudiation",
+      "component_id": "db",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Without database audit logging, changes to sensitive data cannot be reliably attributed to an actor.",
+      "mitigation": "Enable database audit logging for access to and modification of sensitive tables.",
+      "difficulty": "medium"
+    }
+  ]
+}

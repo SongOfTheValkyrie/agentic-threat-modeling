@@ -1,0 +1,132 @@
+{
+  "id": "webapp_with_auth",
+  "name": "Web Application with Authentication",
+  "components": [
+    {
+      "id": "browser",
+      "name": "User Browser",
+      "type": "external_entity",
+      "technology": "Web Browser",
+      "internet_exposed": true,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "frontend",
+      "name": "Web Frontend",
+      "type": "web_app",
+      "technology": "React SPA",
+      "internet_exposed": true,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "api",
+      "name": "Backend API",
+      "type": "web_api",
+      "technology": "Django REST",
+      "internet_exposed": true,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "auth",
+      "name": "Authentication Service",
+      "type": "service",
+      "technology": "Keycloak (OAuth2/OIDC)",
+      "internet_exposed": true,
+      "stores_sensitive_data": true
+    },
+    {
+      "id": "db",
+      "name": "Application Database",
+      "type": "data_store",
+      "technology": "PostgreSQL",
+      "internet_exposed": false,
+      "stores_sensitive_data": true
+    },
+    {
+      "id": "payment",
+      "name": "External Payment Provider",
+      "type": "external_service",
+      "technology": "Stripe API",
+      "internet_exposed": true,
+      "stores_sensitive_data": true
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "browser_to_frontend",
+      "source": "browser",
+      "target": "frontend",
+      "protocol": "HTTPS",
+      "authenticated": false,
+      "encrypted": true,
+      "data_type": "user_interaction"
+    },
+    {
+      "id": "frontend_to_api",
+      "source": "frontend",
+      "target": "api",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "application_requests"
+    },
+    {
+      "id": "frontend_to_auth",
+      "source": "frontend",
+      "target": "auth",
+      "protocol": "HTTPS",
+      "authenticated": false,
+      "encrypted": true,
+      "data_type": "credentials"
+    },
+    {
+      "id": "api_to_auth",
+      "source": "api",
+      "target": "auth",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "token_validation"
+    },
+    {
+      "id": "api_to_db",
+      "source": "api",
+      "target": "db",
+      "protocol": "TLS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "application_data"
+    },
+    {
+      "id": "api_to_payment",
+      "source": "api",
+      "target": "payment",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "payment_data"
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "public_zone",
+      "name": "Public / Untrusted Zone",
+      "component_ids": ["browser"]
+    },
+    {
+      "id": "dmz",
+      "name": "DMZ / Edge Zone",
+      "component_ids": ["frontend", "api", "auth"]
+    },
+    {
+      "id": "internal_zone",
+      "name": "Internal Data Zone",
+      "component_ids": ["db"]
+    },
+    {
+      "id": "third_party_zone",
+      "name": "Third-Party Zone",
+      "component_ids": ["payment"]
+    }
+  ]
+}

@@ -1,11 +1,21 @@
 from src.models.architecture import Architecture
 from src.models.threat import StrideCategory, Threat
 
+# Component types that live outside our trust boundary (e.g. the user's browser,
+# a third-party SaaS provider). We do not own or secure these, so we do not
+# raise component-level threats against them. Threats on the *data flows* to and
+# from these components are still modelled, because those crossings are part of
+# our system.
+EXTERNAL_COMPONENT_TYPES = {"external_entity", "external_service"}
+
 
 def detect_threats(architecture: Architecture) -> list[Threat]:
     threats = []
 
     for component in architecture.components:
+
+        if component.type in EXTERNAL_COMPONENT_TYPES:
+            continue
 
         if component.internet_exposed:
             threats.append(

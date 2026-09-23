@@ -1,0 +1,147 @@
+{
+  "id": "cloud_ingest_pipeline",
+  "name": "Cloud Data Ingest Pipeline",
+  "components": [
+    {
+      "id": "producer",
+      "name": "External Data Producer",
+      "type": "external_entity",
+      "technology": "Partner Systems",
+      "internet_exposed": true,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "ingest_api",
+      "name": "Ingest API",
+      "type": "web_api",
+      "technology": "AWS API Gateway + Lambda",
+      "internet_exposed": true,
+      "stores_sensitive_data": false,
+      "config": {
+        "rate_limiting_enabled": false,
+        "request_logging_enabled": true
+      }
+    },
+    {
+      "id": "raw_bucket",
+      "name": "Raw Data Bucket",
+      "type": "object_store",
+      "technology": "AWS S3",
+      "internet_exposed": false,
+      "stores_sensitive_data": true,
+      "config": {
+        "public_access": true,
+        "encryption_at_rest": false,
+        "versioning_enabled": false,
+        "access_logging_enabled": false
+      }
+    },
+    {
+      "id": "processing_cluster",
+      "name": "Processing Cluster",
+      "type": "compute",
+      "technology": "AWS EMR / Spark",
+      "internet_exposed": false,
+      "stores_sensitive_data": false,
+      "config": {
+        "iam_role": "admin",
+        "iam_role_scope": "account-wide",
+        "instance_metadata_v2_required": false
+      }
+    },
+    {
+      "id": "warehouse",
+      "name": "Data Warehouse",
+      "type": "data_store",
+      "technology": "AWS Redshift",
+      "internet_exposed": false,
+      "stores_sensitive_data": true,
+      "config": {
+        "encryption_at_rest": false,
+        "audit_logging_enabled": false,
+        "publicly_accessible": false
+      }
+    },
+    {
+      "id": "monitoring",
+      "name": "Monitoring & Logging",
+      "type": "service",
+      "technology": "AWS CloudWatch",
+      "internet_exposed": false,
+      "stores_sensitive_data": false,
+      "config": {
+        "log_retention_days": 0,
+        "alerting_enabled": false
+      }
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "producer_to_ingest",
+      "source": "producer",
+      "target": "ingest_api",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "raw_records"
+    },
+    {
+      "id": "ingest_to_raw_bucket",
+      "source": "ingest_api",
+      "target": "raw_bucket",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "raw_records"
+    },
+    {
+      "id": "raw_bucket_to_processing",
+      "source": "raw_bucket",
+      "target": "processing_cluster",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "raw_records"
+    },
+    {
+      "id": "processing_to_warehouse",
+      "source": "processing_cluster",
+      "target": "warehouse",
+      "protocol": "TLS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "processed_records"
+    },
+    {
+      "id": "processing_to_monitoring",
+      "source": "processing_cluster",
+      "target": "monitoring",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "metrics_and_logs"
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "public_zone",
+      "name": "Public / Untrusted Zone",
+      "component_ids": ["producer"]
+    },
+    {
+      "id": "ingest_zone",
+      "name": "Ingest Edge Zone",
+      "component_ids": ["ingest_api"]
+    },
+    {
+      "id": "data_zone",
+      "name": "Internal Data Zone",
+      "component_ids": ["raw_bucket", "processing_cluster", "warehouse"]
+    },
+    {
+      "id": "ops_zone",
+      "name": "Operations Zone",
+      "component_ids": ["monitoring"]
+    }
+  ]
+}

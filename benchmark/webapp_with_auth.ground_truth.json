@@ -1,0 +1,177 @@
+{
+  "architecture_id": "webapp_with_auth",
+  "description": "Manually curated STRIDE ground truth for the Web Application with Authentication architecture. Each threat is keyed by its target (component_id or data_flow_id) plus STRIDE category; that (target, category) pair is the intended matching key for evaluation. This architecture introduces trust-boundary crossings and a third-party payment provider, so several threats arise from relationships between components rather than from a single attribute. Well-secured flows (encrypted + authenticated, e.g. api_to_db, api_to_auth, api_to_payment) intentionally carry no ground-truth threats so they can surface false positives.",
+  "threats": [
+    {
+      "id": "frontend_spoofing",
+      "component_id": "frontend",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The internet-exposed frontend can be impersonated by phishing or lookalike sites tricking users into submitting credentials.",
+      "mitigation": "Serve over HSTS-enforced TLS, use verified domains, and educate users; pin the auth origin.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "frontend_tampering",
+      "component_id": "frontend",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Client-side code and requests from the internet-exposed frontend can be manipulated (e.g. tampered payloads, DOM/script injection).",
+      "mitigation": "Apply Content Security Policy, integrity checks (SRI), and server-side validation of all inputs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "frontend_denial_of_service",
+      "component_id": "frontend",
+      "data_flow_id": null,
+      "category": "denial_of_service",
+      "description": "As a public entry point, the frontend can be overwhelmed by volumetric or application-layer traffic.",
+      "mitigation": "Use a CDN/WAF, rate limiting, and autoscaling for static delivery.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "api_spoofing",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The internet-exposed backend API can be targeted by clients impersonating legitimate users or replaying tokens.",
+      "mitigation": "Validate access tokens on every request, enforce short token lifetimes, and check audience/issuer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "api_tampering",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "The API can receive manipulated or malicious requests (parameter tampering, injection payloads).",
+      "mitigation": "Validate and sanitize all inputs, use parameterized queries, and enforce strict schema validation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "api_repudiation",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Without sufficient audit logging, clients can deny performing sensitive actions such as payments.",
+      "mitigation": "Log authenticated requests with tamper-evident, timestamped audit trails.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "api_denial_of_service",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "denial_of_service",
+      "description": "As a public internet-facing endpoint, the API is exposed to denial-of-service attacks.",
+      "mitigation": "Apply rate limiting, request throttling, timeouts, and upstream DDoS protection.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "api_elevation_of_privilege",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "Flaws in authorization logic could let an authenticated client access resources beyond its privileges.",
+      "mitigation": "Enforce least-privilege authorization on every endpoint and separate roles/scopes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "auth_spoofing",
+      "component_id": "auth",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The internet-exposed authentication service is a prime target for credential stuffing and brute-force impersonation.",
+      "mitigation": "Enforce MFA, account lockout/backoff, and anomaly detection on login attempts.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "auth_information_disclosure",
+      "component_id": "auth",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The auth service stores sensitive credential material (password hashes, tokens, keys) that could be exposed.",
+      "mitigation": "Store only salted hashes, encrypt secrets at rest, and tightly restrict access.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "auth_elevation_of_privilege",
+      "component_id": "auth",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "Weaknesses in token issuance or role assignment could allow privilege escalation across the whole system.",
+      "mitigation": "Validate token claims and scopes, sign tokens with rotated keys, and audit role grants.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "auth_denial_of_service",
+      "component_id": "auth",
+      "data_flow_id": null,
+      "category": "denial_of_service",
+      "description": "Overwhelming the public auth service can lock out all users by preventing logins.",
+      "mitigation": "Rate-limit login endpoints and isolate auth capacity from general API traffic.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "db_information_disclosure",
+      "component_id": "db",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The application database stores sensitive data exposable via misconfiguration, backups, or compromised credentials.",
+      "mitigation": "Encrypt data at rest, restrict network/account access, and manage secrets securely.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "db_tampering",
+      "component_id": "db",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Sensitive records could be modified without authorization if database access controls are weak.",
+      "mitigation": "Enforce least-privilege database accounts and integrity constraints; monitor write access.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "db_repudiation",
+      "component_id": "db",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Without database audit logging, changes to sensitive data cannot be reliably attributed.",
+      "mitigation": "Enable database audit logging for access to and modification of sensitive tables.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "browser_to_frontend_spoofing",
+      "component_id": null,
+      "data_flow_id": "browser_to_frontend",
+      "category": "spoofing",
+      "description": "The initial browser-to-frontend flow is unauthenticated, allowing session fixation or man-in-the-middle impersonation attempts before login.",
+      "mitigation": "Establish authenticated sessions promptly, use secure cookies, and enforce HSTS.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "frontend_to_auth_spoofing",
+      "component_id": null,
+      "data_flow_id": "frontend_to_auth",
+      "category": "spoofing",
+      "description": "The credential-submission flow from frontend to auth is unauthenticated at initiation and susceptible to interception or CSRF-style abuse.",
+      "mitigation": "Use anti-CSRF tokens, PKCE for OAuth flows, and bind the flow to a verified origin.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "frontend_to_auth_information_disclosure",
+      "component_id": null,
+      "data_flow_id": "frontend_to_auth",
+      "category": "information_disclosure",
+      "description": "This flow carries raw credentials; weaknesses in transport or logging could expose secrets.",
+      "mitigation": "Enforce TLS, never log credentials, and use short-lived authorization codes instead of raw secrets.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "api_to_payment_information_disclosure",
+      "component_id": null,
+      "data_flow_id": "api_to_payment",
+      "category": "information_disclosure",
+      "description": "Payment data crosses a trust boundary to a third-party provider; misrouting or logging could disclose cardholder data.",
+      "mitigation": "Minimize transmitted data (tokenization), pin the provider certificate, and avoid logging payloads.",
+      "difficulty": "medium"
+    }
+  ]
+}

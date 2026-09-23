@@ -1,0 +1,189 @@
+{
+  "id": "microservices_async",
+  "name": "Microservices with Asynchronous Messaging",
+  "components": [
+    {
+      "id": "client",
+      "name": "Mobile / Web Client",
+      "type": "external_entity",
+      "technology": "iOS / Android / SPA",
+      "internet_exposed": true,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "gateway",
+      "name": "API Gateway",
+      "type": "gateway",
+      "technology": "Kong",
+      "internet_exposed": true,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "order_service",
+      "name": "Order Service",
+      "type": "service",
+      "technology": "Go",
+      "internet_exposed": false,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "user_service",
+      "name": "User Service",
+      "type": "service",
+      "technology": "Java Spring",
+      "internet_exposed": false,
+      "stores_sensitive_data": true
+    },
+    {
+      "id": "notification_service",
+      "name": "Notification Service",
+      "type": "service",
+      "technology": "Node.js",
+      "internet_exposed": false,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "order_db",
+      "name": "Order Database",
+      "type": "data_store",
+      "technology": "PostgreSQL",
+      "internet_exposed": false,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "user_db",
+      "name": "User Database",
+      "type": "data_store",
+      "technology": "PostgreSQL",
+      "internet_exposed": false,
+      "stores_sensitive_data": true
+    },
+    {
+      "id": "message_queue",
+      "name": "Message Queue",
+      "type": "message_broker",
+      "technology": "RabbitMQ",
+      "internet_exposed": false,
+      "stores_sensitive_data": true
+    },
+    {
+      "id": "cache",
+      "name": "Shared Session Cache",
+      "type": "cache",
+      "technology": "Redis",
+      "internet_exposed": false,
+      "stores_sensitive_data": true
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "client_to_gateway",
+      "source": "client",
+      "target": "gateway",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "api_requests"
+    },
+    {
+      "id": "gateway_to_order",
+      "source": "gateway",
+      "target": "order_service",
+      "protocol": "HTTP",
+      "authenticated": false,
+      "encrypted": false,
+      "data_type": "order_requests"
+    },
+    {
+      "id": "gateway_to_user",
+      "source": "gateway",
+      "target": "user_service",
+      "protocol": "HTTP",
+      "authenticated": false,
+      "encrypted": false,
+      "data_type": "user_requests"
+    },
+    {
+      "id": "order_to_orderdb",
+      "source": "order_service",
+      "target": "order_db",
+      "protocol": "TLS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "order_data"
+    },
+    {
+      "id": "user_to_userdb",
+      "source": "user_service",
+      "target": "user_db",
+      "protocol": "TLS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "user_data"
+    },
+    {
+      "id": "order_to_queue",
+      "source": "order_service",
+      "target": "message_queue",
+      "protocol": "AMQP",
+      "authenticated": false,
+      "encrypted": false,
+      "data_type": "order_events"
+    },
+    {
+      "id": "queue_to_notification",
+      "source": "message_queue",
+      "target": "notification_service",
+      "protocol": "AMQP",
+      "authenticated": false,
+      "encrypted": false,
+      "data_type": "order_events"
+    },
+    {
+      "id": "user_to_cache",
+      "source": "user_service",
+      "target": "cache",
+      "protocol": "TCP",
+      "authenticated": false,
+      "encrypted": false,
+      "data_type": "session_data"
+    },
+    {
+      "id": "order_to_cache",
+      "source": "order_service",
+      "target": "cache",
+      "protocol": "TCP",
+      "authenticated": false,
+      "encrypted": false,
+      "data_type": "session_data"
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "public_zone",
+      "name": "Public / Untrusted Zone",
+      "component_ids": ["client"]
+    },
+    {
+      "id": "edge_zone",
+      "name": "Edge Zone",
+      "component_ids": ["gateway"]
+    },
+    {
+      "id": "service_mesh",
+      "name": "Internal Service Mesh",
+      "component_ids": [
+        "order_service",
+        "user_service",
+        "notification_service",
+        "message_queue",
+        "cache"
+      ]
+    },
+    {
+      "id": "data_zone",
+      "name": "Internal Data Zone",
+      "component_ids": ["order_db", "user_db"]
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+{
+  "architecture_id": "microservices_async",
+  "description": "Manually curated STRIDE ground truth for the Microservices with Asynchronous Messaging architecture. Each threat is keyed by its target (component_id or data_flow_id) plus STRIDE category; that (target, category) pair is the intended matching key for evaluation. This architecture's key difficulty is that many threats arise from the interaction between components (a message broker sitting between producer and consumer, a session cache shared by multiple services) rather than from a single attribute. Well-secured flows (client_to_gateway, order_to_orderdb, user_to_userdb) intentionally carry no ground-truth threats so they can surface false positives.",
+  "threats": [
+    {
+      "id": "gateway_spoofing",
+      "component_id": "gateway",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The internet-exposed API gateway can be targeted by clients impersonating legitimate callers or replaying tokens.",
+      "mitigation": "Validate tokens at the edge, enforce mTLS to upstreams, and check audience/issuer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "gateway_denial_of_service",
+      "component_id": "gateway",
+      "data_flow_id": null,
+      "category": "denial_of_service",
+      "description": "As the single public entry point, the gateway is a concentrated target for denial-of-service attacks.",
+      "mitigation": "Apply rate limiting, request quotas, timeouts, and upstream DDoS protection.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "gateway_elevation_of_privilege",
+      "component_id": "gateway",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "A compromised or misconfigured gateway could forward requests to internal services with more privilege than the caller should have.",
+      "mitigation": "Enforce least-privilege routing, propagate authenticated identity, and never trust client-supplied roles.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "user_service_information_disclosure",
+      "component_id": "user_service",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The user service handles sensitive personal data that could be exposed through logging, errors, or over-broad responses.",
+      "mitigation": "Minimize returned fields, redact sensitive data in logs, and enforce field-level access control.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "user_db_information_disclosure",
+      "component_id": "user_db",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The user database stores sensitive personal data exposable via misconfiguration, backups, or compromised credentials.",
+      "mitigation": "Encrypt data at rest, restrict network/account access, and manage secrets securely.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "user_db_tampering",
+      "component_id": "user_db",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Sensitive user records could be modified without authorization if database access controls are weak.",
+      "mitigation": "Enforce least-privilege database accounts and integrity constraints; monitor write access.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "user_db_repudiation",
+      "component_id": "user_db",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Without database audit logging, changes to sensitive user data cannot be reliably attributed.",
+      "mitigation": "Enable database audit logging for access to and modification of sensitive tables.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "message_queue_tampering",
+      "component_id": "message_queue",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Events passing through the broker can be modified or forged by any party with queue access, since messages are neither signed nor access-controlled per producer.",
+      "mitigation": "Authenticate producers/consumers, sign or validate message payloads, and use per-queue authorization.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "message_queue_information_disclosure",
+      "component_id": "message_queue",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The broker retains order event data that may contain sensitive fields; unauthorized consumers could read messages off shared queues.",
+      "mitigation": "Restrict queue subscriptions, encrypt messages, and avoid placing sensitive fields in events.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "message_queue_denial_of_service",
+      "component_id": "message_queue",
+      "data_flow_id": null,
+      "category": "denial_of_service",
+      "description": "An attacker or misbehaving producer can flood the broker, delaying or dropping events for all consumers.",
+      "mitigation": "Apply per-producer quotas, queue length limits, and dead-letter handling.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "cache_tampering",
+      "component_id": "cache",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "The session cache is shared across services with no authentication; a compromised service can poison or overwrite another service's session entries.",
+      "mitigation": "Require AUTH on the cache, namespace keys per service, and validate cached values before use.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "cache_information_disclosure",
+      "component_id": "cache",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "Session data held in the shared cache could be read by any service or attacker with network access to it.",
+      "mitigation": "Require authentication and TLS to the cache, and isolate it at the network level.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "cache_elevation_of_privilege",
+      "component_id": "cache",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "By tampering with shared session entries, an attacker could hijack or elevate another user's session across services.",
+      "mitigation": "Bind sessions to signed tokens, validate integrity of cached sessions, and rotate keys.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "gateway_to_order_spoofing",
+      "component_id": null,
+      "data_flow_id": "gateway_to_order",
+      "category": "spoofing",
+      "description": "The gateway-to-order-service call is unauthenticated, so any party on the mesh could impersonate the gateway.",
+      "mitigation": "Enforce mutual TLS and service identity between gateway and services.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "gateway_to_order_information_disclosure",
+      "component_id": null,
+      "data_flow_id": "gateway_to_order",
+      "category": "information_disclosure",
+      "description": "The gateway-to-order-service traffic is unencrypted and can be sniffed on the internal network.",
+      "mitigation": "Encrypt internal service-to-service traffic (mTLS).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "gateway_to_user_spoofing",
+      "component_id": null,
+      "data_flow_id": "gateway_to_user",
+      "category": "spoofing",
+      "description": "The gateway-to-user-service call is unauthenticated, allowing impersonation on the mesh.",
+      "mitigation": "Enforce mutual TLS and service identity between gateway and services.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "gateway_to_user_information_disclosure",
+      "component_id": null,
+      "data_flow_id": "gateway_to_user",
+      "category": "information_disclosure",
+      "description": "The gateway-to-user-service traffic carries user data unencrypted and can be intercepted internally.",
+      "mitigation": "Encrypt internal service-to-service traffic (mTLS).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "order_to_queue_spoofing",
+      "component_id": null,
+      "data_flow_id": "order_to_queue",
+      "category": "spoofing",
+      "description": "Publishing to the queue is unauthenticated, so any component could forge order events.",
+      "mitigation": "Authenticate producers to the broker and authorize per-queue publishing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "order_to_queue_information_disclosure",
+      "component_id": null,
+      "data_flow_id": "order_to_queue",
+      "category": "information_disclosure",
+      "description": "Order events are published unencrypted and can be read in transit to the broker.",
+      "mitigation": "Encrypt the producer-to-broker connection and the messages themselves.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "queue_to_notification_spoofing",
+      "component_id": null,
+      "data_flow_id": "queue_to_notification",
+      "category": "spoofing",
+      "description": "Consumption from the queue is unauthenticated, so a rogue consumer could subscribe to and act on order events.",
+      "mitigation": "Authenticate consumers and authorize per-queue subscriptions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "queue_to_notification_information_disclosure",
+      "component_id": null,
+      "data_flow_id": "queue_to_notification",
+      "category": "information_disclosure",
+      "description": "Events delivered to the notification service are unencrypted in transit and can be intercepted.",
+      "mitigation": "Encrypt the broker-to-consumer connection.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "user_to_cache_spoofing",
+      "component_id": null,
+      "data_flow_id": "user_to_cache",
+      "category": "spoofing",
+      "description": "The user-service-to-cache connection is unauthenticated, allowing any host to connect to the cache.",
+      "mitigation": "Require cache authentication and restrict connections to known services.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "user_to_cache_information_disclosure",
+      "component_id": null,
+      "data_flow_id": "user_to_cache",
+      "category": "information_disclosure",
+      "description": "Session data flows to the cache unencrypted and can be sniffed on the internal network.",
+      "mitigation": "Enable TLS to the cache and isolate cache traffic.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "order_to_cache_spoofing",
+      "component_id": null,
+      "data_flow_id": "order_to_cache",
+      "category": "spoofing",
+      "description": "The order-service-to-cache connection is unauthenticated, allowing any host to connect to the cache.",
+      "mitigation": "Require cache authentication and restrict connections to known services.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "order_to_cache_information_disclosure",
+      "component_id": null,
+      "data_flow_id": "order_to_cache",
+      "category": "information_disclosure",
+      "description": "Session data flows to the cache unencrypted and can be sniffed on the internal network.",
+      "mitigation": "Enable TLS to the cache and isolate cache traffic.",
+      "difficulty": "easy"
+    }
+  ]
+}

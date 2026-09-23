@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class Component(BaseModel):
@@ -8,6 +10,12 @@ class Component(BaseModel):
     technology: str | None = None
     internet_exposed: bool = False
     stores_sensitive_data: bool = False
+    # Free-form configuration / posture state (e.g. {"public_access": true,
+    # "logging_enabled": false, "iam_role": "admin"}). These states are not
+    # captured by the boolean attributes above and typically require security
+    # knowledge to interpret. The deterministic baseline ignores this field;
+    # RAG and agentic approaches may read and reason over it.
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
 class DataFlow(BaseModel):

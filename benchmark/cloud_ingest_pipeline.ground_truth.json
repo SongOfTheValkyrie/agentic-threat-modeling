@@ -1,0 +1,123 @@
+{
+  "architecture_id": "cloud_ingest_pipeline",
+  "description": "Manually curated STRIDE ground truth for the Cloud Data Ingest Pipeline. Each threat is keyed by its target (component_id or data_flow_id) plus STRIDE category; that (target, category) pair is the intended matching key for evaluation. This architecture is deliberately built so that all data flows are well-secured (authenticated + encrypted) and the real risk lives in per-component configuration/posture (the `config` field): a publicly readable, unencrypted bucket; an over-privileged processing role; a warehouse without encryption or audit logging; disabled rate limiting; and effectively disabled monitoring. Such threats are marked `hard` because they require security knowledge and configuration reasoning rather than a single boolean attribute, and the deterministic baseline (which ignores `config`) cannot find them.",
+  "threats": [
+    {
+      "id": "ingest_api_spoofing",
+      "component_id": "ingest_api",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The internet-exposed ingest API can be targeted by producers impersonating legitimate partners.",
+      "mitigation": "Require signed requests or mutual TLS and validate producer identity on every call.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "ingest_api_tampering",
+      "component_id": "ingest_api",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "The public ingest endpoint can receive malformed or malicious records (injection, schema abuse).",
+      "mitigation": "Validate and sanitize all incoming records against a strict schema before storage.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "ingest_api_repudiation",
+      "component_id": "ingest_api",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Producers could deny submitting specific records if request provenance is not reliably recorded.",
+      "mitigation": "Record signed, timestamped provenance for each ingested record.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "ingest_api_denial_of_service",
+      "component_id": "ingest_api",
+      "data_flow_id": null,
+      "category": "denial_of_service",
+      "description": "Rate limiting is disabled (config.rate_limiting_enabled = false), so a producer can flood the pipeline and exhaust downstream capacity.",
+      "mitigation": "Enable rate limiting and per-producer quotas at the ingest edge.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "raw_bucket_information_disclosure",
+      "component_id": "raw_bucket",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The raw bucket is publicly readable and unencrypted at rest (config.public_access = true, encryption_at_rest = false), directly exposing sensitive raw records to anyone on the internet.",
+      "mitigation": "Disable public access, enforce bucket policies/Block Public Access, and enable encryption at rest.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "raw_bucket_tampering",
+      "component_id": "raw_bucket",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Public access combined with disabled versioning (config.versioning_enabled = false) lets an attacker overwrite or delete raw objects with no recovery path.",
+      "mitigation": "Restrict write access, enable versioning, and use object lock for immutability.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "raw_bucket_repudiation",
+      "component_id": "raw_bucket",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Access logging is disabled (config.access_logging_enabled = false), so reads and writes to sensitive raw data cannot be attributed.",
+      "mitigation": "Enable server access logging / data-event logging and ship logs to a protected store.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "processing_cluster_elevation_of_privilege",
+      "component_id": "processing_cluster",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "The processing cluster runs with an account-wide admin role (config.iam_role = admin, iam_role_scope = account-wide); a single compromised job can take over the whole account.",
+      "mitigation": "Apply least-privilege IAM scoped to required resources and use per-job roles.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "processing_cluster_information_disclosure",
+      "component_id": "processing_cluster",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "IMDSv1 is allowed (config.instance_metadata_v2_required = false), enabling SSRF-based theft of the cluster's powerful role credentials.",
+      "mitigation": "Require IMDSv2 (hop limit 1) and block SSRF paths to the metadata endpoint.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "warehouse_information_disclosure",
+      "component_id": "warehouse",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The warehouse stores sensitive processed data without encryption at rest (config.encryption_at_rest = false), exposing it via snapshots, backups, or disk access.",
+      "mitigation": "Enable encryption at rest with managed keys and restrict snapshot sharing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "warehouse_repudiation",
+      "component_id": "warehouse",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Audit logging is disabled (config.audit_logging_enabled = false), so queries against and changes to sensitive data cannot be attributed.",
+      "mitigation": "Enable audit/connection logging and forward it to tamper-evident storage.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "warehouse_tampering",
+      "component_id": "warehouse",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Sensitive processed records could be modified without authorization if warehouse access controls are weak.",
+      "mitigation": "Enforce least-privilege database roles and monitor write/DDL activity.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "monitoring_repudiation",
+      "component_id": "monitoring",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Log retention is zero and alerting is disabled (config.log_retention_days = 0, alerting_enabled = false), so security-relevant events are neither retained nor noticed, undermining attribution across the whole pipeline.",
+      "mitigation": "Set an adequate retention period, protect logs from deletion, and enable alerting.",
+      "difficulty": "hard"
+    }
+  ]
+}
