@@ -1,0 +1,34 @@
+{
+  "id": "simple_web_api",
+  "name": "Simple Web API",
+  "components": [
+    {
+      "id": "api",
+      "name": "Public API",
+      "type": "web_api",
+      "technology": "FastAPI",
+      "internet_exposed": true,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "db",
+      "name": "Customer Database",
+      "type": "data_store",
+      "technology": "PostgreSQL",
+      "internet_exposed": false,
+      "stores_sensitive_data": true
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "api_to_db",
+      "source": "api",
+      "target": "db",
+      "protocol": "TLS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "customer_data"
+    }
+  ],
+  "trust_boundaries": []
+}
