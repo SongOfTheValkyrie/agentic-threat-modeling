@@ -1,4 +1,5 @@
-from src.deterministic.rules import detect_threats
+from src.core import ThreatModeler
+from src.deterministic.modeler import DeterministicThreatModeler
 from src.evaluation.evaluator import evaluate, evaluate_by_difficulty
 from src.models.loader import load_architecture, load_ground_truth
 from src.models.threat import Difficulty
@@ -11,12 +12,19 @@ BENCHMARKS = [
     "cloud_ingest_pipeline",
 ]
 
+# Approaches under comparison. All satisfy the ThreatModeler contract, so they
+# run through the exact same benchmark/evaluation path. RAG and agent modelers
+# will be appended here as they are built.
+MODELERS: list[ThreatModeler] = [
+    DeterministicThreatModeler(),
+]
 
-def run_benchmark(name: str) -> None:
+
+def run_benchmark(modeler: ThreatModeler, name: str) -> None:
     architecture = load_architecture(f"benchmark/{name}.json")
     ground_truth = load_ground_truth(f"benchmark/{name}.ground_truth.json")
 
-    threats = detect_threats(architecture)
+    threats = modeler.analyze(architecture)
     result = evaluate(threats, ground_truth)
     by_difficulty = evaluate_by_difficulty(threats, ground_truth)
 
@@ -37,11 +45,12 @@ def run_benchmark(name: str) -> None:
 
 
 def main() -> None:
-    print("Deterministic baseline across benchmark architectures")
-    print("=" * 60)
-    print()
-    for name in BENCHMARKS:
-        run_benchmark(name)
+    for modeler in MODELERS:
+        print(f"Approach: {modeler.name}")
+        print("=" * 60)
+        print()
+        for name in BENCHMARKS:
+            run_benchmark(modeler, name)
 
 
 if __name__ == "__main__":

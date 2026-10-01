@@ -25,7 +25,7 @@
       "text": "Assigning components or identities more privilege than they need turns any single compromise into a broad one. Scope roles narrowly and separate duties.",
       "source": "CWE-269; OWASP A01:2021",
       "stride_categories": ["elevation_of_privilege"],
-      "applies_to": ["compute", "service", "iam_role", "over_privileged"],
+      "applies_to": ["compute", "service", "iam_role", "iam_role_scope", "over_privileged"],
       "keywords": ["privilege", "iam", "admin", "role", "over-privileged", "account-wide"]
     },
     {
@@ -70,8 +70,8 @@
       "text": "When security-relevant events are not recorded or retained, attacks are hard to detect and actions cannot be attributed after the fact. Log access to sensitive resources and protect logs from tampering.",
       "source": "CWE-778; OWASP A09:2021",
       "stride_categories": ["repudiation"],
-      "applies_to": ["data_store", "object_store", "service", "monitoring", "access_logging", "audit_logging"],
-      "keywords": ["logging", "audit", "monitoring", "retention", "attribution", "forensics"]
+      "applies_to": ["data_store", "object_store", "service", "monitoring", "access_logging_enabled", "audit_logging_enabled", "log_retention_days", "alerting_enabled", "request_logging_enabled"],
+      "keywords": ["logging", "audit", "monitoring", "retention", "attribution", "forensics", "alerting"]
     },
     {
       "id": "kb_no_rate_limit",
@@ -79,7 +79,7 @@
       "text": "Endpoints that accept requests without rate limits or quotas can be overwhelmed, denying service to legitimate users. Apply rate limiting, quotas, and timeouts at entry points.",
       "source": "CWE-770; OWASP A04:2021",
       "stride_categories": ["denial_of_service"],
-      "applies_to": ["web_api", "gateway", "service", "rate_limiting", "internet_exposed"],
+      "applies_to": ["web_api", "gateway", "rate_limiting", "rate_limiting_enabled", "internet_exposed"],
       "keywords": ["rate limiting", "throttling", "quota", "dos", "flood", "denial of service"]
     },
     {
@@ -88,7 +88,7 @@
       "text": "Server-side request forgery can trick a workload into reading its cloud instance metadata and stealing its role credentials. Require the hardened metadata service (IMDSv2) and block internal metadata paths.",
       "source": "CWE-918; OWASP A10:2021",
       "stride_categories": ["information_disclosure", "elevation_of_privilege"],
-      "applies_to": ["compute", "service", "instance_metadata", "web_api"],
+      "applies_to": ["compute", "instance_metadata", "instance_metadata_v2_required"],
       "keywords": ["ssrf", "metadata", "imdsv2", "credential theft", "169.254.169.254"]
     },
     {
@@ -106,7 +106,7 @@
       "text": "Untrusted input mixed into queries or commands enables injection attacks. Validate against strict schemas and use parameterized queries rather than string concatenation.",
       "source": "CWE-89; OWASP A03:2021",
       "stride_categories": ["tampering", "elevation_of_privilege"],
-      "applies_to": ["web_api", "service", "data_store"],
+      "applies_to": ["web_api", "service", "gateway"],
       "keywords": ["injection", "sql injection", "input validation", "parameterized", "sanitization"]
     },
     {
@@ -169,7 +169,7 @@
       "text": "Trusting unsigned updates, plugins, or data pipelines lets attackers inject malicious content. Verify integrity with signatures and trusted sources before use.",
       "source": "OWASP A08:2021",
       "stride_categories": ["tampering"],
-      "applies_to": ["service", "compute", "data_flow", "pipeline"],
+      "applies_to": ["pipeline", "compute"],
       "keywords": ["integrity", "signing", "supply chain", "unsigned", "verification"]
     },
     {
