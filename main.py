@@ -1,6 +1,7 @@
 import os
 import time
 
+from src.agent.modeler import AgentThreatModeler
 from src.core import ThreatModeler
 from src.deterministic.modeler import DeterministicThreatModeler
 from src.evaluation.evaluator import evaluate, evaluate_by_difficulty
@@ -24,14 +25,17 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
 def build_modelers() -> list[ThreatModeler]:
     """Assemble the approaches to compare.
 
-    The deterministic baseline always runs. The RAG approach needs a running
-    Ollama server, so it is opt-in via the RAG=1 env var to keep the default
-    run dependency-free.
+    The deterministic baseline always runs. The RAG and agent approaches need a
+    running Ollama server, so they are opt-in via the RAG=1 and AGENT=1 env vars
+    to keep the default run dependency-free.
     """
     modelers: list[ThreatModeler] = [DeterministicThreatModeler()]
 
     if os.environ.get("RAG") == "1":
         modelers.append(RagThreatModeler(llm=OllamaClient(model=OLLAMA_MODEL)))
+
+    if os.environ.get("AGENT") == "1":
+        modelers.append(AgentThreatModeler(llm=OllamaClient(model=OLLAMA_MODEL)))
 
     return modelers
 

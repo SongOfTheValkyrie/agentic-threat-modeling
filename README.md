@@ -67,3 +67,80 @@ All approaches receive the same structured description of a software architectur
               +-------------+-------------+
               |             |             |
            Quality        Latency        Cost
+
+
+---
+
+## Getting Started
+
+### Requirements
+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) (used for dependency management)
+- [Ollama](https://ollama.com/) — only needed for the RAG and agent approaches
+
+### Setup
+
+```bash
+# install dependencies into a local virtual environment
+uv sync
+```
+
+The deterministic baseline runs with no further setup. The RAG and agent
+approaches additionally require a running Ollama server and a pulled model:
+
+```bash
+# start the Ollama server (leave running in its own terminal)
+ollama serve
+
+# pull the default model (~4.9 GB)
+ollama pull llama3.1:8b
+```
+
+## Usage
+
+The benchmark runner lives in `main.py`. It evaluates each enabled approach
+against every benchmark architecture and reports precision, recall, F1, and
+recall broken down by threat difficulty (easy / medium / hard), plus latency.
+
+The three approaches are toggled with environment variables so the default run
+stays dependency-free:
+
+```bash
+# deterministic baseline only (no Ollama required)
+uv run python main.py
+
+# baseline + fixed RAG workflow
+RAG=1 uv run python main.py
+
+# baseline + agentic approach
+AGENT=1 uv run python main.py
+
+# all three approaches side by side
+RAG=1 AGENT=1 uv run python main.py
+```
+
+Select a different Ollama model with `OLLAMA_MODEL`:
+
+```bash
+OLLAMA_MODEL=qwen2.5:7b RAG=1 uv run python main.py
+```
+
+> **Note:** LLM-backed approaches are not fully deterministic even at
+> temperature 0. For reliable figures, run each configuration several times and
+> average the results.
+
+## Project Layout
+
+```text
+benchmark/   System architectures (*.json) and their STRIDE ground truth
+data/        Curated security knowledge corpus for retrieval
+src/
+  models/        Architecture and threat data models + loaders
+  deterministic/ Rule-based baseline
+  RAG/           Knowledge base, retriever, query builder, LLM client, pipeline
+  agent/         Tools and the agentic (tool-calling) threat modeler
+  evaluation/    Precision / recall / F1 and per-difficulty metrics
+  core.py        The ThreatModeler interface shared by all approaches
+main.py      Benchmark runner comparing the approaches
+```
