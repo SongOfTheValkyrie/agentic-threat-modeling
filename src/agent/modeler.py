@@ -109,12 +109,27 @@ class AgentThreatModeler:
         self._max_steps = max_steps
         self._k = k
 
+    def _progress_hint(
+        self, architecture: Architecture, inspected: set[str]
+    ) -> str:
+        """Tell the model which components it has not inspected yet.
+
+        Small local models tend to lose track of what they have already done;
+        a concrete reminder nudges them to cover every element before finishing.
+        """
+        remaining = [c.id for c in architecture.components if c.id not in inspected]
+        if remaining:
+            return f"Not yet inspected: {remaining}. Inspect them before finishing."
+        return "All components inspected. Report remaining threats, then finish."
+
     def analyze(self, architecture: Architecture) -> list[Threat]:
         tool_box = ToolBox(architecture, self._retriever, k=self._k)
 
         transcript = (
             "Begin threat modeling. Start by calling list_components.\n"
         )
+        inspected: set[str] = set()
+        last_signature: str | None = None
 
         for _ in range(self._max_steps):
             raw = self._llm.complete(transcript, system=SYSTEM_PROMPT)
@@ -127,15 +142,34 @@ class AgentThreatModeler:
                 )
                 continue
 
+            # Loop detection: if the model repeats the exact same action, do not
+            # re-run it; redirect it instead so it cannot spin in place.
+            signature = json.dumps(action, sort_keys=True)
+            if signature == last_signature:
+                transcript += (
+                    "\nNOTE: You just performed that exact action. Do something "
+                    "different, inspect an uninspected element, or finish.\n"
+                    f"{self._progress_hint(architecture, inspected)}\n"
+                )
+                last_signature = None  # allow the action again after redirect
+                continue
+            last_signature = signature
+
             observation = _run_action(tool_box, action)
             if observation == "finish":
                 break
 
+            if action.get("tool") == "inspect_component":
+                comp_id = (action.get("args") or {}).get("component_id")
+                if comp_id:
+                    inspected.add(comp_id)
+
             # Append the chosen action and its observation so the model can
-            # build on what it has already learned.
+            # build on what it has already learned, plus a progress hint.
             transcript += (
                 f"\nACTION: {json.dumps(action)}\n"
                 f"OBSERVATION:\n{observation}\n"
+                f"PROGRESS: {self._progress_hint(architecture, inspected)}\n"
             )
 
         return tool_box.reported

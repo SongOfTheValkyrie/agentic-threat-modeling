@@ -5,6 +5,7 @@ from src.agent.modeler import AgentThreatModeler
 from src.core import ThreatModeler
 from src.deterministic.modeler import DeterministicThreatModeler
 from src.evaluation.evaluator import evaluate, evaluate_by_difficulty
+from src.evaluation.results import RunRecord, append_result
 from src.models.loader import load_architecture, load_ground_truth
 from src.models.threat import Difficulty
 from src.RAG.llm import OllamaClient
@@ -40,7 +41,7 @@ def build_modelers() -> list[ThreatModeler]:
     return modelers
 
 
-def run_benchmark(modeler: ThreatModeler, name: str) -> None:
+def run_benchmark(modeler: ThreatModeler, name: str, run_index: int = 0) -> None:
     architecture = load_architecture(f"benchmark/{name}.json")
     ground_truth = load_ground_truth(f"benchmark/{name}.ground_truth.json")
 
@@ -50,6 +51,22 @@ def run_benchmark(modeler: ThreatModeler, name: str) -> None:
 
     result = evaluate(threats, ground_truth)
     by_difficulty = evaluate_by_difficulty(threats, ground_truth)
+
+    # The deterministic baseline uses no model; LLM modelers encode the model in
+    # their name as "ollama:<model>".
+    model = modeler.name.split(":", 1)[1] if ":" in modeler.name else "none"
+    append_result(
+        RunRecord(
+            approach=modeler.name.split(":", 1)[0],
+            model=model,
+            architecture=name,
+            result=result,
+            by_difficulty=by_difficulty,
+            latency_seconds=elapsed,
+            num_threats=len(threats),
+            run_index=run_index,
+        )
+    )
 
     print(f"{architecture.name} ({name})")
     print(
