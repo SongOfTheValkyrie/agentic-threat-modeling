@@ -37,12 +37,22 @@ nothing else, choosing one tool:
 STRIDE categories: spoofing, tampering, repudiation, information_disclosure, \
 denial_of_service, elevation_of_privilege.
 
-Strategy: first list components, then inspect elements and their connections, \
-search knowledge when useful, and report every genuine threat with \
-report_threat. Pay attention to configuration and to resources shared between \
-components. Only report threats that truly apply. Call finish when done.
+Strategy:
+1. Call list_components to see everything.
+2. Inspect EVERY component and data flow, and use get_connections to find \
+shared resources and trust-boundary crossings.
+3. For each element, consider ALL SIX STRIDE categories, not just one. A single \
+component often has several distinct threats (e.g. an internet-facing API can \
+have spoofing, tampering, repudiation, denial_of_service and \
+elevation_of_privilege threats). Report each genuine threat separately with \
+report_threat.
+4. Pay close attention to configuration fields (e.g. public access, missing \
+encryption, over-broad roles, disabled logging) and to resources shared between \
+components.
+5. Only call finish after you have inspected every element and reported all \
+threats you can justify.
 
-Respond with JSON only."""
+Only report threats that truly apply. Respond with JSON only."""
 
 _DISPATCH = {
     "list_components": lambda tb, args: tb.list_components(),
@@ -109,18 +119,30 @@ class AgentThreatModeler:
         self._max_steps = max_steps
         self._k = k
 
+    def _uninspected(
+        self, architecture: Architecture, inspected: set[str]
+    ) -> list[str]:
+        """Component and data-flow ids not yet inspected."""
+        ids = [c.id for c in architecture.components] + [
+            f.id for f in architecture.data_flows
+        ]
+        return [i for i in ids if i not in inspected]
+
     def _progress_hint(
         self, architecture: Architecture, inspected: set[str]
     ) -> str:
-        """Tell the model which components it has not inspected yet.
+        """Tell the model which elements it has not inspected yet.
 
         Small local models tend to lose track of what they have already done;
         a concrete reminder nudges them to cover every element before finishing.
         """
-        remaining = [c.id for c in architecture.components if c.id not in inspected]
+        remaining = self._uninspected(architecture, inspected)
         if remaining:
             return f"Not yet inspected: {remaining}. Inspect them before finishing."
-        return "All components inspected. Report remaining threats, then finish."
+        return (
+            "All elements inspected. Report any remaining threats "
+            "(consider all STRIDE categories), then finish."
+        )
 
     def analyze(self, architecture: Architecture) -> list[Threat]:
         tool_box = ToolBox(architecture, self._retriever, k=self._k)
@@ -157,12 +179,27 @@ class AgentThreatModeler:
 
             observation = _run_action(tool_box, action)
             if observation == "finish":
+                # Do not let the model stop until it has inspected everything;
+                # premature finishing was the main cause of low recall.
+                remaining = self._uninspected(architecture, inspected)
+                if remaining:
+                    transcript += (
+                        "\nNOTE: You cannot finish yet. "
+                        f"{self._progress_hint(architecture, inspected)}\n"
+                    )
+                    last_signature = None
+                    continue
                 break
 
-            if action.get("tool") == "inspect_component":
-                comp_id = (action.get("args") or {}).get("component_id")
-                if comp_id:
-                    inspected.add(comp_id)
+            # Track inspected elements (components and data flows).
+            if action.get("tool") in ("inspect_component", "get_connections"):
+                cid = (action.get("args") or {}).get("component_id")
+                if cid:
+                    inspected.add(cid)
+            elif action.get("tool") == "inspect_data_flow":
+                fid = (action.get("args") or {}).get("data_flow_id")
+                if fid:
+                    inspected.add(fid)
 
             # Append the chosen action and its observation so the model can
             # build on what it has already learned, plus a progress hint.
