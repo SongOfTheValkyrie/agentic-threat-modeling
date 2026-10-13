@@ -1,0 +1,139 @@
+{
+  "id": "multi_tenant_saas",
+  "name": "Multi-Tenant SaaS Application",
+  "components": [
+    {
+      "id": "tenant_user",
+      "name": "Tenant User",
+      "type": "external_entity",
+      "technology": "Web Browser",
+      "internet_exposed": true,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "api",
+      "name": "Application API",
+      "type": "web_api",
+      "technology": "Node.js",
+      "internet_exposed": true,
+      "stores_sensitive_data": false,
+      "config": {
+        "authentication": "oauth2",
+        "tenant_id_source": "request_parameter",
+        "authorization_checks": "authentication_only"
+      }
+    },
+    {
+      "id": "document_service",
+      "name": "Document Service",
+      "type": "service",
+      "technology": "Node.js",
+      "internet_exposed": false,
+      "stores_sensitive_data": false,
+      "config": {
+        "object_ownership_check": false
+      }
+    },
+    {
+      "id": "shared_db",
+      "name": "Shared Tenant Database",
+      "type": "data_store",
+      "technology": "PostgreSQL",
+      "internet_exposed": false,
+      "stores_sensitive_data": true,
+      "config": {
+        "multi_tenancy": "shared_schema",
+        "row_level_security": false,
+        "tenant_isolation": false
+      }
+    },
+    {
+      "id": "object_store",
+      "name": "Tenant File Storage",
+      "type": "object_store",
+      "technology": "S3",
+      "internet_exposed": false,
+      "stores_sensitive_data": true,
+      "config": {
+        "public_access": false,
+        "encryption_at_rest": true,
+        "per_tenant_prefix_enforced": false
+      }
+    },
+    {
+      "id": "admin_portal",
+      "name": "Tenant Admin Portal",
+      "type": "web_app",
+      "technology": "React",
+      "internet_exposed": true,
+      "stores_sensitive_data": false,
+      "config": {
+        "role_separation": "single_global_admin_role"
+      }
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "user_to_api",
+      "source": "tenant_user",
+      "target": "api",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "tenant_requests"
+    },
+    {
+      "id": "admin_to_api",
+      "source": "admin_portal",
+      "target": "api",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "admin_requests"
+    },
+    {
+      "id": "api_to_document_service",
+      "source": "api",
+      "target": "document_service",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "document_requests"
+    },
+    {
+      "id": "api_to_db",
+      "source": "api",
+      "target": "shared_db",
+      "protocol": "TLS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "tenant_data"
+    },
+    {
+      "id": "document_service_to_store",
+      "source": "document_service",
+      "target": "object_store",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "tenant_files"
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "public_zone",
+      "name": "Public / Untrusted Zone",
+      "component_ids": ["tenant_user"]
+    },
+    {
+      "id": "app_zone",
+      "name": "Application Zone",
+      "component_ids": ["api", "document_service", "admin_portal"]
+    },
+    {
+      "id": "data_zone",
+      "name": "Shared Data Zone",
+      "component_ids": ["shared_db", "object_store"]
+    }
+  ]
+}

@@ -180,6 +180,33 @@
       "stride_categories": ["spoofing", "denial_of_service"],
       "applies_to": ["auth", "service", "internet_exposed"],
       "keywords": ["mfa", "credential stuffing", "brute force", "account lockout", "login"]
+    },
+    {
+      "id": "kb_tenant_isolation",
+      "title": "Weak tenant isolation in multi-tenant systems",
+      "text": "When tenants share a schema or store without strict isolation, a flaw or missing filter lets one tenant read or modify another's data. Enforce row-level security keyed on tenant, or isolate per schema/bucket, and partition storage per tenant.",
+      "source": "OWASP A01:2021; CWE-653",
+      "stride_categories": ["information_disclosure", "tampering"],
+      "applies_to": ["data_store", "object_store", "shared_schema", "multi_tenancy", "tenant_isolation", "row_level_security", "per_tenant_prefix_enforced"],
+      "keywords": ["multi-tenant", "tenant isolation", "row-level security", "cross-tenant", "shared schema", "noisy neighbor"]
+    },
+    {
+      "id": "kb_broken_object_authz",
+      "title": "Broken object-level authorization (IDOR)",
+      "text": "If a service does not verify that the caller owns the object it requests, an attacker can access or alter other users' resources by guessing identifiers. Check ownership and tenant scope on every object access, not just authentication.",
+      "source": "OWASP A01:2021; CWE-639",
+      "stride_categories": ["information_disclosure", "elevation_of_privilege"],
+      "applies_to": ["web_api", "service", "object_ownership_check", "authorization_checks"],
+      "keywords": ["idor", "object level authorization", "ownership check", "bola", "insecure direct object reference"]
+    },
+    {
+      "id": "kb_tenant_from_input",
+      "title": "Trusting client-supplied tenant or role",
+      "text": "Deriving the tenant or role from a request parameter rather than the authenticated identity lets a user act as another tenant or escalate privileges. Derive tenant and roles from the verified token, and scope admin roles per tenant.",
+      "source": "OWASP A01:2021; CWE-269",
+      "stride_categories": ["elevation_of_privilege", "information_disclosure"],
+      "applies_to": ["web_api", "admin_portal", "tenant_id_source", "authorization_checks", "role_separation"],
+      "keywords": ["tenant from input", "privilege escalation", "global admin", "role separation", "authorization only authentication"]
     }
   ]
 }

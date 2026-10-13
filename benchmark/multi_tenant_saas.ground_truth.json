@@ -1,0 +1,114 @@
+{
+  "architecture_id": "multi_tenant_saas",
+  "description": "Manually curated STRIDE ground truth for the Multi-Tenant SaaS Application. Each threat is keyed by its target (component_id or data_flow_id) plus STRIDE category. This architecture deliberately keeps all data flows well-secured (authenticated + encrypted) and the storage encrypted; the real risk is weak tenant isolation and broken authorization. Those threats are marked `hard` because they require reasoning about authorization logic and cross-tenant relationships rather than reading a single attribute, and the deterministic baseline cannot find them. This broadens the hard class beyond the cloud-configuration domain of cloud_ingest_pipeline.",
+  "threats": [
+    {
+      "id": "api_spoofing",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The internet-exposed API can be targeted by clients impersonating legitimate tenants or replaying tokens.",
+      "mitigation": "Validate tokens on every request and bind sessions to a verified tenant identity.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "api_elevation_of_privilege",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "The API derives the tenant from a request parameter and only checks authentication, so a user can set another tenant's id and act across tenant boundaries.",
+      "mitigation": "Derive tenant from the authenticated token, never from client input, and enforce per-tenant authorization on every request.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "api_information_disclosure",
+      "component_id": "api",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "Because authorization is authentication-only, a tenant can read data belonging to other tenants through the shared API.",
+      "mitigation": "Add object- and tenant-level authorization checks (not just authentication) on every endpoint.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "document_service_information_disclosure",
+      "component_id": "document_service",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The document service does not verify object ownership, so a caller can fetch documents belonging to other tenants by guessing or enumerating ids (IDOR).",
+      "mitigation": "Verify that the requested object belongs to the caller's tenant before returning it.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "document_service_elevation_of_privilege",
+      "component_id": "document_service",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "Missing ownership checks let a tenant perform actions on another tenant's documents.",
+      "mitigation": "Enforce ownership- and tenant-scoped authorization on every document operation.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "shared_db_information_disclosure",
+      "component_id": "shared_db",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "Tenants share one schema with no row-level security or tenant isolation, so a query flaw or missing filter exposes other tenants' sensitive rows.",
+      "mitigation": "Enable row-level security keyed on tenant id, or isolate tenants per schema/database.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "shared_db_tampering",
+      "component_id": "shared_db",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Without tenant isolation, a compromised or buggy query path can modify rows belonging to other tenants.",
+      "mitigation": "Enforce tenant-scoped access with row-level security and least-privilege database roles.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "object_store_information_disclosure",
+      "component_id": "object_store",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "File storage is not partitioned per tenant, so one tenant's prefixes/objects can be read by another despite encryption at rest.",
+      "mitigation": "Enforce per-tenant prefixes/buckets and scope access policies to the owning tenant.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "admin_portal_elevation_of_privilege",
+      "component_id": "admin_portal",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "A single global admin role spans all tenants, so a compromised or over-granted admin can affect every tenant.",
+      "mitigation": "Scope admin roles per tenant and separate platform-admin from tenant-admin duties.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "admin_portal_spoofing",
+      "component_id": "admin_portal",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The internet-exposed admin portal can be impersonated or targeted by credential attacks to gain tenant-admin access.",
+      "mitigation": "Enforce MFA and strong session binding for admin authentication.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "shared_db_repudiation",
+      "component_id": "shared_db",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Without per-tenant audit logging, cross-tenant access or changes cannot be attributed to the responsible actor.",
+      "mitigation": "Enable tenant-scoped audit logging for access to and changes of sensitive rows.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "object_store_repudiation",
+      "component_id": "object_store",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "File access is not logged per tenant, so unauthorized cross-tenant file reads cannot be traced.",
+      "mitigation": "Enable per-tenant access logging and retain logs in protected storage.",
+      "difficulty": "medium"
+    }
+  ]
+}

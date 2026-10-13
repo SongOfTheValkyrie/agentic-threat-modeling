@@ -17,6 +17,7 @@ BENCHMARKS = [
     "webapp_with_auth",
     "microservices_async",
     "cloud_ingest_pipeline",
+    "multi_tenant_saas",
 ]
 
 # Model used by LLM-backed approaches. Override with the OLLAMA_MODEL env var.
