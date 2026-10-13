@@ -22,6 +22,10 @@ BENCHMARKS = [
 # Model used by LLM-backed approaches. Override with the OLLAMA_MODEL env var.
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
 
+# Number of repetitions per configuration. LLM runs vary between repeats, so
+# several runs are needed before averaging produces reliable figures.
+RUNS = int(os.environ.get("RUNS", "1"))
+
 
 def build_modelers() -> list[ThreatModeler]:
     """Assemble the approaches to compare.
@@ -85,12 +89,20 @@ def run_benchmark(modeler: ThreatModeler, name: str, run_index: int = 0) -> None
 
 
 def main() -> None:
-    for modeler in build_modelers():
-        print(f"Approach: {modeler.name}")
-        print("=" * 60)
-        print()
-        for name in BENCHMARKS:
-            run_benchmark(modeler, name)
+    modelers = build_modelers()
+
+    # Build modelers once, then repeat the full sweep RUNS times. Each repeat
+    # gets a distinct run_index so the appended results can be told apart and
+    # averaged later.
+    for run_index in range(RUNS):
+        if RUNS > 1:
+            print(f"\n########## RUN {run_index + 1} / {RUNS} ##########\n")
+        for modeler in modelers:
+            print(f"Approach: {modeler.name}")
+            print("=" * 60)
+            print()
+            for name in BENCHMARKS:
+                run_benchmark(modeler, name, run_index=run_index)
 
 
 if __name__ == "__main__":
