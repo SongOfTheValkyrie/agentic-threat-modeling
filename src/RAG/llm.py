@@ -49,8 +49,12 @@ class FakeLLMClient:
         self.last_prompt: str | None = None
         self.last_system: str | None = None
         self.last_messages: list[dict] | None = None
+        # Usage counters (mirrors OllamaClient so modelers can read them).
+        self.llm_calls = 0
+        self.tokens = 0
 
     def _next(self) -> str:
+        self.llm_calls += 1
         if self._responses is None:
             return self._response
         value = self._responses[min(self._index, len(self._responses) - 1)]
@@ -85,6 +89,10 @@ class OllamaClient:
         self.name = f"ollama:{model}"
         self._host = host.rstrip("/")
         self._timeout = timeout
+        # Usage counters, accumulated across calls. A modeler can snapshot these
+        # before/after analyze() to log per-run LLM calls and token usage.
+        self.llm_calls = 0
+        self.tokens = 0
 
     def _post(self, endpoint: str, payload: dict) -> dict:
         # Low temperature: we want consistent, structured output, not creative
@@ -99,11 +107,17 @@ class OllamaClient:
         )
         try:
             with urllib.request.urlopen(request, timeout=self._timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
+                body = json.loads(response.read().decode("utf-8"))
         except urllib.error.URLError as exc:
             raise RuntimeError(
                 f"Could not reach Ollama at {self._host}. Is the server running? ({exc})"
             ) from exc
+
+        self.llm_calls += 1
+        self.tokens += int(body.get("prompt_eval_count", 0)) + int(
+            body.get("eval_count", 0)
+        )
+        return body
 
     def complete(self, prompt: str, system: str | None = None) -> str:
         payload: dict = {"prompt": prompt}

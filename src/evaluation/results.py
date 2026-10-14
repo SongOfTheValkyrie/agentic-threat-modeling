@@ -28,9 +28,13 @@ class RunRecord:
     latency_seconds: float
     num_threats: int
     run_index: int = 0
+    # Optional usage metrics (None when not applicable, e.g. deterministic).
+    llm_calls: int | None = None
+    retrieval_calls: int | None = None
+    tokens: int | None = None
 
     def to_dict(self) -> dict:
-        return {
+        record = {
             "timestamp": datetime.now(UTC).isoformat(),
             "approach": self.approach,
             "model": self.model,
@@ -54,6 +58,15 @@ class RunRecord:
             "latency_seconds": round(self.latency_seconds, 3),
             "num_threats": self.num_threats,
         }
+        # Only include usage metrics when provided, keeping older records' shape.
+        for key, value in (
+            ("llm_calls", self.llm_calls),
+            ("retrieval_calls", self.retrieval_calls),
+            ("tokens", self.tokens),
+        ):
+            if value is not None:
+                record[key] = value
+        return record
 
 
 def append_result(record: RunRecord, path: str | Path = DEFAULT_RESULTS_PATH) -> None:
