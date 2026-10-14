@@ -119,14 +119,19 @@ class AgentThreatModeler:
         self._max_steps = max_steps
         self._k = k
 
+    def _element_ids(self, architecture: Architecture) -> list[str]:
+        """All component and data-flow ids."""
+        return [c.id for c in architecture.components] + [
+            f.id for f in architecture.data_flows
+        ]
+
     def _uninspected(
         self, architecture: Architecture, inspected: set[str]
     ) -> list[str]:
         """Component and data-flow ids not yet inspected."""
-        ids = [c.id for c in architecture.components] + [
-            f.id for f in architecture.data_flows
+        return [
+            i for i in self._element_ids(architecture) if i not in inspected
         ]
-        return [i for i in ids if i not in inspected]
 
     def _progress_hint(
         self, architecture: Architecture, inspected: set[str]
@@ -147,32 +152,44 @@ class AgentThreatModeler:
     def analyze(self, architecture: Architecture) -> list[Threat]:
         tool_box = ToolBox(architecture, self._retriever, k=self._k)
 
-        transcript = (
-            "Begin threat modeling. Start by calling list_components.\n"
-        )
+        # Structured multi-turn history: the system prompt, then alternating
+        # assistant actions and user observations. A role-tagged message list
+        # (vs. one flat string) helps small models keep track of what they
+        # themselves did versus what tools returned.
+        messages: list[dict] = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": "Begin threat modeling. Start by calling list_components.",
+            },
+        ]
         inspected: set[str] = set()
         last_signature: str | None = None
 
         for _ in range(self._max_steps):
-            raw = self._llm.complete(transcript, system=SYSTEM_PROMPT)
+            raw = self._llm.chat(messages)
+            messages.append({"role": "assistant", "content": raw})
             action = _extract_action(raw)
 
             if action is None:
-                transcript += (
-                    "\nASSISTANT (unparsable): respond with a single JSON "
-                    "action object only.\n"
-                )
+                messages.append({
+                    "role": "user",
+                    "content": "Respond with a single JSON action object only.",
+                })
                 continue
 
             # Loop detection: if the model repeats the exact same action, do not
             # re-run it; redirect it instead so it cannot spin in place.
             signature = json.dumps(action, sort_keys=True)
             if signature == last_signature:
-                transcript += (
-                    "\nNOTE: You just performed that exact action. Do something "
-                    "different, inspect an uninspected element, or finish.\n"
-                    f"{self._progress_hint(architecture, inspected)}\n"
-                )
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "You just performed that exact action. Do something "
+                        "different, inspect an uninspected element, or finish. "
+                        + self._progress_hint(architecture, inspected)
+                    ),
+                })
                 last_signature = None  # allow the action again after redirect
                 continue
             last_signature = signature
@@ -183,10 +200,11 @@ class AgentThreatModeler:
                 # premature finishing was the main cause of low recall.
                 remaining = self._uninspected(architecture, inspected)
                 if remaining:
-                    transcript += (
-                        "\nNOTE: You cannot finish yet. "
-                        f"{self._progress_hint(architecture, inspected)}\n"
-                    )
+                    messages.append({
+                        "role": "user",
+                        "content": "You cannot finish yet. "
+                        + self._progress_hint(architecture, inspected),
+                    })
                     last_signature = None
                     continue
                 break
@@ -201,12 +219,13 @@ class AgentThreatModeler:
                 if fid:
                     inspected.add(fid)
 
-            # Append the chosen action and its observation so the model can
-            # build on what it has already learned, plus a progress hint.
-            transcript += (
-                f"\nACTION: {json.dumps(action)}\n"
-                f"OBSERVATION:\n{observation}\n"
-                f"PROGRESS: {self._progress_hint(architecture, inspected)}\n"
-            )
+            # Feed the observation back as a user turn, plus a progress hint.
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"OBSERVATION:\n{observation}\n\n"
+                    f"PROGRESS: {self._progress_hint(architecture, inspected)}"
+                ),
+            })
 
         return tool_box.reported

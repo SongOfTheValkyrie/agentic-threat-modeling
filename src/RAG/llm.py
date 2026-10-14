@@ -19,6 +19,16 @@ class LLMClient(Protocol):
         """Return the model's text completion for the given prompt."""
         ...
 
+    def chat(self, messages: list[dict]) -> str:
+        """Return the model's reply given a list of role/content messages.
+
+        ``messages`` is a list of ``{"role": ..., "content": ...}`` dicts with
+        roles "system", "user", and "assistant". Multi-turn agents use this so
+        the model sees its own prior actions and tool results as distinct turns
+        rather than one flat string.
+        """
+        ...
+
 
 class FakeLLMClient:
     """Deterministic stand-in for tests and offline development.
@@ -30,15 +40,31 @@ class FakeLLMClient:
 
     name = "fake"
 
-    def __init__(self, response: str = ""):
+    def __init__(self, response: str = "", responses: list[str] | None = None):
+        # `response` is returned by every call; `responses` (if given) is a
+        # scripted sequence returned one per call (useful for multi-turn agents).
         self._response = response
+        self._responses = list(responses) if responses else None
+        self._index = 0
         self.last_prompt: str | None = None
         self.last_system: str | None = None
+        self.last_messages: list[dict] | None = None
+
+    def _next(self) -> str:
+        if self._responses is None:
+            return self._response
+        value = self._responses[min(self._index, len(self._responses) - 1)]
+        self._index += 1
+        return value
 
     def complete(self, prompt: str, system: str | None = None) -> str:
         self.last_prompt = prompt
         self.last_system = system
-        return self._response
+        return self._next()
+
+    def chat(self, messages: list[dict]) -> str:
+        self.last_messages = messages
+        return self._next()
 
 
 class OllamaClient:
@@ -60,31 +86,31 @@ class OllamaClient:
         self._host = host.rstrip("/")
         self._timeout = timeout
 
-    def complete(self, prompt: str, system: str | None = None) -> str:
-        payload: dict = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-            # Low temperature: we want consistent, structured output, not
-            # creative variation.
-            "options": {"temperature": 0.0},
-        }
-        if system is not None:
-            payload["system"] = system
-
+    def _post(self, endpoint: str, payload: dict) -> dict:
+        # Low temperature: we want consistent, structured output, not creative
+        # variation.
+        payload = {"model": self.model, "stream": False,
+                   "options": {"temperature": 0.0}, **payload}
         request = urllib.request.Request(
-            f"{self._host}/api/generate",
+            f"{self._host}/{endpoint}",
             data=json.dumps(payload).encode("utf-8"),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-
         try:
             with urllib.request.urlopen(request, timeout=self._timeout) as response:
-                body = json.loads(response.read().decode("utf-8"))
+                return json.loads(response.read().decode("utf-8"))
         except urllib.error.URLError as exc:
             raise RuntimeError(
                 f"Could not reach Ollama at {self._host}. Is the server running? ({exc})"
             ) from exc
 
-        return body.get("response", "")
+    def complete(self, prompt: str, system: str | None = None) -> str:
+        payload: dict = {"prompt": prompt}
+        if system is not None:
+            payload["system"] = system
+        return self._post("api/generate", payload).get("response", "")
+
+    def chat(self, messages: list[dict]) -> str:
+        body = self._post("api/chat", {"messages": messages})
+        return body.get("message", {}).get("content", "")
