@@ -1,0 +1,117 @@
+{
+  "id": "mobile_banking",
+  "name": "Mobile Banking Backend",
+  "components": [
+    {
+      "id": "mobile_app",
+      "name": "Mobile Banking App",
+      "type": "external_entity",
+      "technology": "iOS / Android",
+      "internet_exposed": true,
+      "stores_sensitive_data": true
+    },
+    {
+      "id": "api_gateway",
+      "name": "Banking API Gateway",
+      "type": "gateway",
+      "technology": "API gateway",
+      "internet_exposed": true,
+      "stores_sensitive_data": false,
+      "config": {
+        "device_binding": false,
+        "certificate_pinning_required": false,
+        "rate_limiting_enabled": true
+      }
+    },
+    {
+      "id": "transaction_service",
+      "name": "Transaction Service",
+      "type": "service",
+      "technology": "Java",
+      "internet_exposed": false,
+      "stores_sensitive_data": true,
+      "config": {
+        "transaction_authorization": "authentication_only",
+        "step_up_auth_for_transfers": false
+      }
+    },
+    {
+      "id": "accounts_db",
+      "name": "Accounts Database",
+      "type": "data_store",
+      "technology": "Oracle",
+      "internet_exposed": false,
+      "stores_sensitive_data": true,
+      "config": {
+        "encryption_at_rest": true,
+        "audit_logging_enabled": true
+      }
+    },
+    {
+      "id": "fraud_service",
+      "name": "Fraud Detection Service",
+      "type": "service",
+      "technology": "Python",
+      "internet_exposed": false,
+      "stores_sensitive_data": false,
+      "config": {
+        "enabled": false
+      }
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "app_to_gateway",
+      "source": "mobile_app",
+      "target": "api_gateway",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "banking_requests"
+    },
+    {
+      "id": "gateway_to_transaction",
+      "source": "api_gateway",
+      "target": "transaction_service",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "transaction_requests"
+    },
+    {
+      "id": "transaction_to_db",
+      "source": "transaction_service",
+      "target": "accounts_db",
+      "protocol": "TLS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "account_data"
+    },
+    {
+      "id": "transaction_to_fraud",
+      "source": "transaction_service",
+      "target": "fraud_service",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "transaction_metadata"
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "public_zone",
+      "name": "Public / Untrusted Zone",
+      "component_ids": ["mobile_app"]
+    },
+    {
+      "id": "edge_zone",
+      "name": "Edge Zone",
+      "component_ids": ["api_gateway"]
+    },
+    {
+      "id": "core_zone",
+      "name": "Core Banking Zone",
+      "component_ids": ["transaction_service", "accounts_db", "fraud_service"]
+    }
+  ]
+}

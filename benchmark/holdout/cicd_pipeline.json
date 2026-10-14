@@ -1,0 +1,144 @@
+{
+  "id": "cicd_pipeline",
+  "name": "CI/CD Build and Deploy Pipeline",
+  "components": [
+    {
+      "id": "developer",
+      "name": "Developer",
+      "type": "external_entity",
+      "technology": "Git client",
+      "internet_exposed": true,
+      "stores_sensitive_data": false
+    },
+    {
+      "id": "scm",
+      "name": "Source Code Repository",
+      "type": "service",
+      "technology": "GitHub",
+      "internet_exposed": true,
+      "stores_sensitive_data": true,
+      "config": {
+        "branch_protection": false,
+        "required_reviews": 0
+      }
+    },
+    {
+      "id": "ci_runner",
+      "name": "CI Build Runner",
+      "type": "compute",
+      "technology": "self-hosted runner",
+      "internet_exposed": false,
+      "stores_sensitive_data": false,
+      "config": {
+        "runs_untrusted_pr_code": true,
+        "isolation": "shared_host",
+        "secrets_scope": "all_pipelines"
+      }
+    },
+    {
+      "id": "artifact_registry",
+      "name": "Artifact Registry",
+      "type": "data_store",
+      "technology": "container registry",
+      "internet_exposed": false,
+      "stores_sensitive_data": false,
+      "config": {
+        "image_signing": false,
+        "immutable_tags": false
+      }
+    },
+    {
+      "id": "secrets_store",
+      "name": "Pipeline Secrets Store",
+      "type": "data_store",
+      "technology": "CI secrets",
+      "internet_exposed": false,
+      "stores_sensitive_data": true,
+      "config": {
+        "encryption_at_rest": true,
+        "masked_in_logs": false
+      }
+    },
+    {
+      "id": "prod_deployer",
+      "name": "Production Deployer",
+      "type": "service",
+      "technology": "deploy agent",
+      "internet_exposed": false,
+      "stores_sensitive_data": false,
+      "config": {
+        "deploy_approval_required": false,
+        "credentials_scope": "cluster_admin"
+      }
+    }
+  ],
+  "data_flows": [
+    {
+      "id": "dev_to_scm",
+      "source": "developer",
+      "target": "scm",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "source_code"
+    },
+    {
+      "id": "scm_to_runner",
+      "source": "scm",
+      "target": "ci_runner",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "build_trigger"
+    },
+    {
+      "id": "runner_to_secrets",
+      "source": "ci_runner",
+      "target": "secrets_store",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "secret_fetch"
+    },
+    {
+      "id": "runner_to_registry",
+      "source": "ci_runner",
+      "target": "artifact_registry",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "build_artifact"
+    },
+    {
+      "id": "deployer_to_registry",
+      "source": "prod_deployer",
+      "target": "artifact_registry",
+      "protocol": "HTTPS",
+      "authenticated": true,
+      "encrypted": true,
+      "data_type": "artifact_pull"
+    }
+  ],
+  "trust_boundaries": [
+    {
+      "id": "public_zone",
+      "name": "Public / Untrusted Zone",
+      "component_ids": ["developer"]
+    },
+    {
+      "id": "ci_zone",
+      "name": "CI Build Zone",
+      "component_ids": ["scm", "ci_runner"]
+    },
+    {
+      "id": "artifact_zone",
+      "name": "Artifact / Secrets Zone",
+      "component_ids": ["artifact_registry", "secrets_store"]
+    },
+    {
+      "id": "prod_zone",
+      "name": "Production Zone",
+      "component_ids": ["prod_deployer"]
+    }
+  ]
+}

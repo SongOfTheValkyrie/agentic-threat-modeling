@@ -1,0 +1,96 @@
+{
+  "architecture_id": "cicd_pipeline",
+  "description": "HOLDOUT test architecture (not used during development). Manually curated STRIDE ground truth for a CI/CD build-and-deploy pipeline. Flows are well-secured; the real risk lives in pipeline-specific configuration: a runner that executes untrusted PR code on a shared host with account-wide secrets, unsigned/mutable artifacts (supply-chain tampering), unprotected branches, unmasked secrets in logs, and an unapproved production deployer with cluster-admin credentials. Hard threats require CI/CD security knowledge and configuration reasoning; the deterministic baseline (which ignores config) cannot find them. easy = exactly what the attribute-based deterministic baseline detects.",
+  "threats": [
+    {
+      "id": "scm_spoofing",
+      "component_id": "scm",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The internet-exposed source repository can be targeted by attackers impersonating developers or using stolen tokens.",
+      "mitigation": "Enforce SSO/MFA and short-lived tokens for repository access.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "scm_information_disclosure",
+      "component_id": "scm",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The repository holds sensitive source and could leak it through misconfiguration or compromised accounts.",
+      "mitigation": "Restrict repository visibility and access, and scan for committed secrets.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "scm_tampering",
+      "component_id": "scm",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "With branch protection off and no required reviews, an attacker or careless actor can push malicious code straight into the main branch.",
+      "mitigation": "Enable branch protection and require independent code review before merge.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "ci_runner_elevation_of_privilege",
+      "component_id": "ci_runner",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "The runner executes untrusted pull-request code on a shared host, so attacker-controlled build steps can run with the runner's privileges and reach other pipelines.",
+      "mitigation": "Run untrusted PR builds in isolated, ephemeral sandboxes with no standing privileges.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "ci_runner_information_disclosure",
+      "component_id": "ci_runner",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The runner's secrets are scoped to all pipelines, so untrusted build code can exfiltrate credentials belonging to unrelated projects.",
+      "mitigation": "Scope secrets to the minimum pipeline and inject them only into trusted jobs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "artifact_registry_tampering",
+      "component_id": "artifact_registry",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Without image signing or immutable tags, a build artifact can be replaced or overwritten, enabling a supply-chain attack on production.",
+      "mitigation": "Require signed artifacts (e.g. Sigstore) and immutable tags; verify signatures before deploy.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "secrets_store_information_disclosure",
+      "component_id": "secrets_store",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The secrets store holds sensitive pipeline credentials that could be exposed if access is too broad.",
+      "mitigation": "Restrict access to secrets and rotate them regularly.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "secrets_store_repudiation",
+      "component_id": "secrets_store",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Secrets are not masked in logs, so credentials can leak into build output and their exposure cannot be cleanly attributed or contained.",
+      "mitigation": "Mask secrets in logs and audit secret access.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "prod_deployer_elevation_of_privilege",
+      "component_id": "prod_deployer",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "The deployer holds cluster-admin credentials and requires no deployment approval, so any triggered pipeline can push arbitrary changes to production.",
+      "mitigation": "Require deployment approval and scope deploy credentials to least privilege.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "prod_deployer_repudiation",
+      "component_id": "prod_deployer",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Without approval gates or deploy records, production deployments cannot be reliably attributed to a responsible actor.",
+      "mitigation": "Require approvals and keep an immutable, signed deployment audit trail.",
+      "difficulty": "medium"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import os
 import time
 
 from src.agent.modeler import AgentThreatModeler
+from src.agent.structured import StructuredAgentThreatModeler
 from src.core import ThreatModeler
 from src.deterministic.modeler import DeterministicThreatModeler
 from src.evaluation.evaluator import evaluate, evaluate_by_difficulty
@@ -11,14 +12,26 @@ from src.models.threat import Difficulty
 from src.RAG.llm import OllamaClient
 from src.RAG.pipeline import RagThreatModeler
 
-# Benchmark architectures ordered from simplest to most complex.
-BENCHMARKS = [
+# Development benchmark: used while building and diagnosing the approaches.
+DEV_BENCHMARKS = [
     "simple_web_api",
     "webapp_with_auth",
     "microservices_async",
     "cloud_ingest_pipeline",
     "multi_tenant_saas",
 ]
+
+# Holdout test set: previously unused architectures for the final evaluation,
+# kept in benchmark/holdout/ to make the dev/holdout split explicit.
+HOLDOUT_BENCHMARKS = [
+    "holdout/cicd_pipeline",
+    "holdout/mobile_banking",
+]
+
+# Select the set with HOLDOUT=1 (otherwise the development benchmark runs).
+BENCHMARKS = (
+    HOLDOUT_BENCHMARKS if os.environ.get("HOLDOUT") == "1" else DEV_BENCHMARKS
+)
 
 # Model used by LLM-backed approaches. Override with the OLLAMA_MODEL env var.
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
@@ -43,12 +56,37 @@ def build_modelers() -> list[ThreatModeler]:
     if os.environ.get("AGENT") == "1":
         modelers.append(AgentThreatModeler(llm=OllamaClient(model=OLLAMA_MODEL)))
 
+    if os.environ.get("AGENT_PEV") == "1":
+        modelers.append(
+            StructuredAgentThreatModeler(llm=OllamaClient(model=OLLAMA_MODEL))
+        )
+
     return modelers
+
+
+def _usage(modeler: ThreatModeler) -> dict:
+    """Read per-run usage counters from an LLM-backed modeler, if available."""
+    client = getattr(modeler, "_llm", None)
+    usage: dict = {}
+    if client is not None and hasattr(client, "llm_calls"):
+        usage["llm_calls"] = client.llm_calls
+        usage["tokens"] = getattr(client, "tokens", None)
+    tool_box = getattr(modeler, "last_tool_box", None)
+    if tool_box is not None and hasattr(tool_box, "retrieval_calls"):
+        usage["retrieval_calls"] = tool_box.retrieval_calls
+    return usage
 
 
 def run_benchmark(modeler: ThreatModeler, name: str, run_index: int = 0) -> None:
     architecture = load_architecture(f"benchmark/{name}.json")
     ground_truth = load_ground_truth(f"benchmark/{name}.ground_truth.json")
+    # Log the bare architecture id without any "holdout/" path prefix.
+    arch_label = name.rsplit("/", 1)[-1]
+
+    # Snapshot usage counters so we can report per-run deltas.
+    client = getattr(modeler, "_llm", None)
+    calls_before = getattr(client, "llm_calls", 0) if client else 0
+    tokens_before = getattr(client, "tokens", 0) if client else 0
 
     start = time.time()
     threats = modeler.analyze(architecture)
@@ -57,23 +95,34 @@ def run_benchmark(modeler: ThreatModeler, name: str, run_index: int = 0) -> None
     result = evaluate(threats, ground_truth)
     by_difficulty = evaluate_by_difficulty(threats, ground_truth)
 
-    # The deterministic baseline uses no model; LLM modelers encode the model in
-    # their name as "ollama:<model>".
-    model = modeler.name.split(":", 1)[1] if ":" in modeler.name else "none"
+    usage = _usage(modeler)
+    llm_calls = usage.get("llm_calls")
+    if llm_calls is not None:
+        llm_calls -= calls_before
+    tokens = usage.get("tokens")
+    if tokens is not None and tokens_before:
+        tokens -= tokens_before
+
+    # Model name comes from the modeler's LLM client when it has one; the
+    # deterministic baseline has none.
+    model = getattr(client, "model", None) or "none"
     append_result(
         RunRecord(
-            approach=modeler.name.split(":", 1)[0],
+            approach=modeler.name,
             model=model,
-            architecture=name,
+            architecture=arch_label,
             result=result,
             by_difficulty=by_difficulty,
             latency_seconds=elapsed,
             num_threats=len(threats),
             run_index=run_index,
+            llm_calls=llm_calls,
+            retrieval_calls=usage.get("retrieval_calls"),
+            tokens=tokens,
         )
     )
 
-    print(f"{architecture.name} ({name})")
+    print(f"{architecture.name} ({arch_label})")
     print(
         f"  Overall:  P={result.precision:.2f}  R={result.recall:.2f}  "
         f"F1={result.f1:.2f}  "

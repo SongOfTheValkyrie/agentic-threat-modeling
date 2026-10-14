@@ -31,6 +31,7 @@ class ToolBox:
         self._retriever = retriever
         self._k = k
         self.reported: list[Threat] = []
+        self.retrieval_calls = 0  # count of search_knowledge invocations
 
     # --- exploration tools -------------------------------------------------
 
@@ -90,6 +91,7 @@ class ToolBox:
         return "\n".join(lines)
 
     def search_knowledge(self, query: str) -> str:
+        self.retrieval_calls += 1
         snippets = self._retriever.retrieve(query, self._k)
         if not snippets:
             return "No relevant knowledge found."

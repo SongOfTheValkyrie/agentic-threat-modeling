@@ -1,0 +1,87 @@
+{
+  "architecture_id": "mobile_banking",
+  "description": "HOLDOUT test architecture (not used during development). Manually curated STRIDE ground truth for a mobile banking backend. Flows are well-secured and the database is encrypted and audited; the real risk lives in configuration: no device binding or certificate pinning at the gateway, transaction authorization that only checks authentication (no step-up/transaction signing), and a fraud-detection service that is switched off. Hard threats require mobile/financial security knowledge and config reasoning; the deterministic baseline cannot find them. easy = exactly what the attribute-based deterministic baseline detects.",
+  "threats": [
+    {
+      "id": "api_gateway_spoofing",
+      "component_id": "api_gateway",
+      "data_flow_id": null,
+      "category": "spoofing",
+      "description": "The internet-exposed gateway can be targeted by clients impersonating legitimate users or replaying captured tokens.",
+      "mitigation": "Validate tokens on every request and bind sessions to a verified identity.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "api_gateway_tampering",
+      "component_id": "api_gateway",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Without certificate pinning, a man-in-the-middle on a compromised device or network can intercept and modify banking traffic.",
+      "mitigation": "Require certificate pinning in the app and reject unpinned connections.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "api_gateway_spoofing_device",
+      "component_id": "api_gateway",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "With no device binding, a stolen token or session can be replayed from any device, letting an attacker act as the victim.",
+      "mitigation": "Bind sessions/tokens to an attested device identity and detect device changes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "mobile_app_information_disclosure",
+      "component_id": "mobile_app",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The app stores sensitive data on the device, which can be extracted on a lost, stolen, or jailbroken device.",
+      "mitigation": "Minimize on-device data, use secure storage/keystore, and detect compromised devices.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "transaction_service_elevation_of_privilege",
+      "component_id": "transaction_service",
+      "data_flow_id": null,
+      "category": "elevation_of_privilege",
+      "description": "Transactions are authorized by authentication alone with no step-up auth, so a hijacked session can initiate high-value transfers the user never approved.",
+      "mitigation": "Require transaction signing / step-up authentication for sensitive operations.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "transaction_service_repudiation",
+      "component_id": "transaction_service",
+      "data_flow_id": null,
+      "category": "repudiation",
+      "description": "Without per-transaction signing or strong authorization evidence, users can dispute transactions and the bank cannot prove intent.",
+      "mitigation": "Capture signed, non-repudiable transaction confirmations.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "transaction_service_information_disclosure",
+      "component_id": "transaction_service",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The service handles sensitive account and transaction data that could be exposed through logging or over-broad responses.",
+      "mitigation": "Minimize returned fields and redact sensitive data in logs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "fraud_service_denial_of_service",
+      "component_id": "fraud_service",
+      "data_flow_id": null,
+      "category": "tampering",
+      "description": "Fraud detection is disabled, so fraudulent transactions pass unchecked — a critical compensating control is absent.",
+      "mitigation": "Enable fraud detection and fail closed for high-risk transactions.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "accounts_db_information_disclosure",
+      "component_id": "accounts_db",
+      "data_flow_id": null,
+      "category": "information_disclosure",
+      "description": "The accounts database stores highly sensitive financial data that could be exposed if access controls fail.",
+      "mitigation": "Keep encryption at rest, restrict access, and monitor queries (already partly configured).",
+      "difficulty": "easy"
+    }
+  ]
+}
