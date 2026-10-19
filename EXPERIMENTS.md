@@ -27,9 +27,17 @@ A running record of experimental conditions and decisions, so every figure in
 | `agent` | Free tool-calling loop. |
 | `agent_pev` | Plan–Explore–Verify agent (`DESIGN_agent_pev.md`, frozen). |
 
-Planned ablation variants of `agent_pev` (baseline `agent_pev` stays unchanged):
-`agent_pev` without Plan, `agent_pev` without Verify, and a context-rich
-deepening variant.
+Ablation / experiment variants of `agent_pev` (baseline `agent_pev` stays
+unchanged; each is a separate approach label, selectable via env var):
+
+| Variant | Env var | Change | Research question |
+|---|---|---|---|
+| `agent_pev_noplan` | `AGENT_PEV_NOPLAN=1` | Plan phase skipped (no priorities/hypotheses, so no deepening) | Does planning improve detection? |
+| `agent_pev_noverify` | `AGENT_PEV_NOVERIFY=1` | Verify phase skipped (keep all candidates) | Does Verify actually improve precision? |
+| `agent_pev_richdeepen` | `AGENT_PEV_RICHDEEPEN=1` | Deepening prompt enriched with the element, plan hypothesis, retrieved knowledge, and tool purposes | Does more context make the model actually investigate, instead of stopping immediately? |
+
+The three switches are independent (`use_plan`, `use_verify`, `rich_deepen`);
+the default reproduces the frozen baseline exactly.
 
 ---
 
@@ -74,3 +82,49 @@ sweep.
 2. Ablations: `agent_pev` without Verify, then without Plan.
 3. Re-measure deepening with the fixed trace; test a context-rich deepening
    prompt as a new variant.
+
+## How to run the measurements
+
+Requires a running Ollama server (`ollama serve`) and the model pulled
+(`ollama pull llama3.1:8b`). All runs append to `results/results.jsonl`;
+aggregate with `aggregate.py` (now also reports mean LLM calls / retrieval
+calls / tokens so quality can be weighed against cost).
+
+**Step 0 — smoke test first (not for conclusions).** One run, one architecture,
+every PEV variant, with traces. Confirms each variant completes and writes a
+valid trace before committing to the long sweep:
+
+```bash
+RUNS=1 ONLY=multi_tenant_saas \
+  AGENT_PEV=1 AGENT_PEV_NOPLAN=1 AGENT_PEV_NOVERIFY=1 AGENT_PEV_RICHDEEPEN=1 \
+  TRACE=1 uv run python main.py
+uv run python trace_summary.py
+```
+
+**Step 1 — baseline sweep (quality + cost, means + std).** No traces (keeps it
+faster; traces are for diagnosis, not headline numbers):
+
+```bash
+RUNS=5 RAG=1 AGENT=1 AGENT_PEV=1 uv run python main.py
+uv run python aggregate.py
+```
+
+**Step 2 — ablation sweep.** Baseline alongside the two ablations, so the deltas
+are directly comparable:
+
+```bash
+RUNS=5 AGENT_PEV=1 AGENT_PEV_NOPLAN=1 AGENT_PEV_NOVERIFY=1 uv run python main.py
+uv run python aggregate.py
+```
+
+**Step 3 — rich-deepen variant (behaviour, so keep traces).** Compare the real
+deepening rate against the baseline via the trace summary:
+
+```bash
+RUNS=5 AGENT_PEV=1 AGENT_PEV_RICHDEEPEN=1 TRACE=1 uv run python main.py
+uv run python trace_summary.py
+```
+
+> Cost warning: a single PEV run makes several LLM calls per element. The full
+> ablation sweep is ~100 agent runs plus RAG and the free agent, so expect well
+> over an hour on local Ollama. Run Step 0 first.
