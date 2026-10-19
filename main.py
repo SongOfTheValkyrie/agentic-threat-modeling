@@ -3,6 +3,7 @@ import time
 
 from src.agent.modeler import AgentThreatModeler
 from src.agent.structured import StructuredAgentThreatModeler
+from src.agent.trace import write_trace
 from src.core import ThreatModeler
 from src.deterministic.modeler import DeterministicThreatModeler
 from src.evaluation.evaluator import evaluate, evaluate_by_difficulty
@@ -39,6 +40,11 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
 # Number of repetitions per configuration. LLM runs vary between repeats, so
 # several runs are needed before averaging produces reliable figures.
 RUNS = int(os.environ.get("RUNS", "1"))
+
+# With TRACE=1, write a per-run execution trace for any agent that exposes one
+# (both agent variants do). Off by default: traces are large and only needed
+# when diagnosing agent behaviour, not for the headline metrics.
+TRACE = os.environ.get("TRACE") == "1"
 
 
 def build_modelers() -> list[ThreatModeler]:
@@ -92,6 +98,14 @@ def run_benchmark(modeler: ThreatModeler, name: str, run_index: int = 0) -> None
     threats = modeler.analyze(architecture)
     elapsed = time.time() - start
 
+    # Optionally persist the agent's execution trace for offline diagnosis.
+    # Only agents expose ``last_trace``; other approaches are skipped silently.
+    trace_path = None
+    if TRACE:
+        trace = getattr(modeler, "last_trace", None)
+        if trace is not None:
+            trace_path = write_trace(trace)
+
     result = evaluate(threats, ground_truth)
     by_difficulty = evaluate_by_difficulty(threats, ground_truth)
 
@@ -135,6 +149,8 @@ def run_benchmark(modeler: ThreatModeler, name: str, run_index: int = 0) -> None
         if r.total:
             parts.append(f"{difficulty.value}={r.detected}/{r.total} ({r.recall:.2f})")
     print(f"  Recall by difficulty:  {'  '.join(parts)}")
+    if trace_path is not None:
+        print(f"  Trace: {trace_path}")
     print()
 
 

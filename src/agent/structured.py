@@ -13,6 +13,7 @@ import json
 import re
 
 from src.agent.tools import ToolBox, ToolError
+from src.agent.trace import DeepenStep, ElementRecord, PevTrace
 from src.models.architecture import Architecture
 from src.models.threat import StrideCategory, Threat
 from src.RAG.knowledge import load_knowledge_base
@@ -163,8 +164,18 @@ class StructuredAgentThreatModeler:
 
     # --- Phase 2: Explore (deterministic over all elements) ---------------
 
-    def _deepen(self, kind: str, element_id: str, tool_box: ToolBox) -> str:
-        """Plan-driven adaptive deepening, bounded by MAX_ADAPTIVE_CALLS."""
+    def _deepen(
+        self,
+        kind: str,
+        element_id: str,
+        tool_box: ToolBox,
+        record: ElementRecord | None = None,
+    ) -> str:
+        """Plan-driven adaptive deepening, bounded by MAX_ADAPTIVE_CALLS.
+
+        If ``record`` is given, each deepening tool call is logged to it for
+        tracing. Logging does not change which calls are made.
+        """
         findings: list[str] = []
         for _ in range(MAX_ADAPTIVE_CALLS):
             raw = self._llm.chat([
@@ -178,6 +189,8 @@ class StructuredAgentThreatModeler:
             tool = action.get("tool")
             args = action.get("args", {}) or {}
             if tool == "get_connections":
+                if record is not None:
+                    record.deepen_steps.append(DeepenStep(tool=tool, args=args))
                 try:
                     findings.append(tool_box.get_connections(args.get("component_id", "")))
                 except ToolError as exc:
@@ -185,14 +198,23 @@ class StructuredAgentThreatModeler:
             elif tool == "search_knowledge":
                 q = str(args.get("query", "")).strip()
                 if q:
+                    if record is not None:
+                        record.deepen_steps.append(DeepenStep(tool=tool, args=args))
                     findings.append(tool_box.search_knowledge(q))
             else:
-                break  # "done" or unrecognized -> stop deepening
+                # "done" or unrecognized -> stop deepening. Record the terminal
+                # step as unused so the trace shows the model chose to stop.
+                if record is not None:
+                    record.deepen_steps.append(
+                        DeepenStep(tool=tool, args=args, used=False)
+                    )
+                break
         return "\n".join(findings)
 
     def _explore_element(
         self, kind: str, element_id: str, element_json: str,
         query: str, hypothesis: str, prioritized: bool, tool_box: ToolBox,
+        record: ElementRecord | None = None,
     ) -> list[dict]:
         # Mandatory knowledge search (same query logic as Fixed RAG).
         knowledge = tool_box.search_knowledge(query)
@@ -200,7 +222,7 @@ class StructuredAgentThreatModeler:
         # Plan-driven adaptive deepening only for prioritized elements.
         extra = ""
         if prioritized:
-            deep = self._deepen(kind, element_id, tool_box)
+            deep = self._deepen(kind, element_id, tool_box, record=record)
             if deep:
                 extra = f"\nAdditional findings:\n{deep}\n"
 
@@ -239,6 +261,18 @@ class StructuredAgentThreatModeler:
         priorities = plan["priorities"]
         hypotheses = plan["hypotheses"]
 
+        # Record the plan outcome and per-element explore/verify so the pipeline
+        # can be inspected offline (see trace.py). Tracing does not change the
+        # pipeline: each phase below just writes what it did into the record.
+        model_name = getattr(self._llm, "name", "unknown")
+        trace = PevTrace(
+            architecture=architecture.id,
+            model=model_name,
+            priorities=sorted(priorities),
+            hypotheses={str(k): str(v) for k, v in hypotheses.items()},
+        )
+        self.last_trace = trace
+
         threats: list[Threat] = []
         index = 0
 
@@ -252,11 +286,22 @@ class StructuredAgentThreatModeler:
             prioritized = element_id in priorities
             hypothesis = str(hypotheses.get(element_id, "")).strip()
 
+            record = ElementRecord(
+                element_id=element_id,
+                kind=kind,
+                prioritized=prioritized,
+                hypothesis=hypothesis,
+            )
+
             candidates = self._explore_element(
                 kind, element_id, element_json, query, hypothesis,
-                prioritized, tool_box,
+                prioritized, tool_box, record=record,
             )
             confirmed = self._verify_element(kind, element_json, candidates)
+
+            record.proposed = len(candidates)
+            record.confirmed = len(confirmed)
+            trace.add_element(record)
 
             is_component = kind == "component"
             for t in confirmed:
@@ -270,4 +315,5 @@ class StructuredAgentThreatModeler:
                 ))
                 index += 1
 
+        trace.num_reported = len(threats)
         return threats

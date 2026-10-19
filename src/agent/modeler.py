@@ -12,6 +12,7 @@ import json
 import re
 
 from src.agent.tools import ToolBox, ToolError
+from src.agent.trace import AgentTrace, StepRecord
 from src.models.architecture import Architecture
 from src.models.threat import Threat
 from src.RAG.knowledge import load_knowledge_base
@@ -152,6 +153,13 @@ class AgentThreatModeler:
     def analyze(self, architecture: Architecture) -> list[Threat]:
         tool_box = ToolBox(architecture, self._retriever, k=self._k)
 
+        # Record every turn so a run can be inspected offline (see trace.py).
+        # Capturing the trace does not change control flow: the branches below
+        # are untouched, each one just appends a StepRecord.
+        model_name = getattr(self._llm, "name", "unknown")
+        trace = AgentTrace(architecture=architecture.id, model=model_name)
+        self.last_trace = trace  # expose to the caller, like last_tool_box
+
         # Structured multi-turn history: the system prompt, then alternating
         # assistant actions and user observations. A role-tagged message list
         # (vs. one flat string) helps small models keep track of what they
@@ -166,7 +174,7 @@ class AgentThreatModeler:
         inspected: set[str] = set()
         last_signature: str | None = None
 
-        for _ in range(self._max_steps):
+        for step in range(self._max_steps):
             raw = self._llm.chat(messages)
             messages.append({"role": "assistant", "content": raw})
             action = _extract_action(raw)
@@ -176,7 +184,14 @@ class AgentThreatModeler:
                     "role": "user",
                     "content": "Respond with a single JSON action object only.",
                 })
+                trace.add(StepRecord(
+                    step=step, raw=raw, intervention="unparseable",
+                    inspected=sorted(inspected),
+                ))
                 continue
+
+            tool = action.get("tool")
+            args = (action.get("args") or {})
 
             # Loop detection: if the model repeats the exact same action, do not
             # re-run it; redirect it instead so it cannot spin in place.
@@ -191,6 +206,10 @@ class AgentThreatModeler:
                     ),
                 })
                 last_signature = None  # allow the action again after redirect
+                trace.add(StepRecord(
+                    step=step, raw=raw, tool=tool, args=args,
+                    intervention="loop", inspected=sorted(inspected),
+                ))
                 continue
             last_signature = signature
 
@@ -206,18 +225,32 @@ class AgentThreatModeler:
                         + self._progress_hint(architecture, inspected),
                     })
                     last_signature = None
+                    trace.add(StepRecord(
+                        step=step, raw=raw, tool="finish",
+                        intervention="blocked_finish", inspected=sorted(inspected),
+                    ))
                     continue
+                trace.add(StepRecord(
+                    step=step, raw=raw, tool="finish",
+                    observation="finish", inspected=sorted(inspected),
+                ))
+                trace.outcome = "finished"
                 break
 
             # Track inspected elements (components and data flows).
-            if action.get("tool") in ("inspect_component", "get_connections"):
-                cid = (action.get("args") or {}).get("component_id")
+            if tool in ("inspect_component", "get_connections"):
+                cid = args.get("component_id")
                 if cid:
                     inspected.add(cid)
-            elif action.get("tool") == "inspect_data_flow":
-                fid = (action.get("args") or {}).get("data_flow_id")
+            elif tool == "inspect_data_flow":
+                fid = args.get("data_flow_id")
                 if fid:
                     inspected.add(fid)
+
+            trace.add(StepRecord(
+                step=step, raw=raw, tool=tool, args=args,
+                observation=observation, inspected=sorted(inspected),
+            ))
 
             # Feed the observation back as a user turn, plus a progress hint.
             messages.append({
@@ -228,4 +261,5 @@ class AgentThreatModeler:
                 ),
             })
 
+        trace.num_reported = len(tool_box.reported)
         return tool_box.reported
