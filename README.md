@@ -163,11 +163,15 @@ RAG=1 AGENT=1 AGENT_PEV=1 uv run python main.py
 | `OLLAMA_MODEL` | `llama3.1:8b` | Model used by all LLM-backed approaches. |
 | `RUNS` | `1` | Repeat the full sweep N times, each with a distinct run index, so LLM variance can be captured. |
 | `HOLDOUT` | off | Run the held-out test architectures (`benchmark/holdout/`) instead of the development set. |
+| `ONLY` | off | Comma-separated architecture ids to narrow the run to (e.g. `ONLY=multi_tenant_saas`). Handy for a quick, targeted trace. |
 | `TRACE` | off | Write a per-run agent execution trace to `results/traces/` (agents only). |
 
 ```bash
-# five repeats of the agent to measure variance, with traces
-RUNS=5 AGENT=1 TRACE=1 uv run python main.py
+# five repeats of the agent to measure variance (no traces)
+RUNS=5 AGENT=1 uv run python main.py
+
+# one targeted trace of both agents on a single architecture (fast)
+ONLY=multi_tenant_saas AGENT=1 AGENT_PEV=1 TRACE=1 uv run python main.py
 
 # a different model
 OLLAMA_MODEL=qwen2.5:7b RAG=1 uv run python main.py

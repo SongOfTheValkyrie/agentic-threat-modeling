@@ -30,9 +30,25 @@ HOLDOUT_BENCHMARKS = [
 ]
 
 # Select the set with HOLDOUT=1 (otherwise the development benchmark runs).
-BENCHMARKS = (
+_selected = (
     HOLDOUT_BENCHMARKS if os.environ.get("HOLDOUT") == "1" else DEV_BENCHMARKS
 )
+
+# ONLY=<name>[,<name>...] narrows the run to specific architectures, matched by
+# their bare id (ignoring any "holdout/" prefix). Useful for a quick, targeted
+# trace of one approach on one architecture instead of the full sweep.
+_only = os.environ.get("ONLY", "").strip()
+if _only:
+    wanted = {name.strip().rsplit("/", 1)[-1] for name in _only.split(",")}
+    BENCHMARKS = [b for b in _selected if b.rsplit("/", 1)[-1] in wanted]
+    if not BENCHMARKS:
+        available = [b.rsplit("/", 1)[-1] for b in _selected]
+        raise SystemExit(
+            f"ONLY={_only!r} matched no architecture in the selected set. "
+            f"Available: {available}"
+        )
+else:
+    BENCHMARKS = _selected
 
 # Model used by LLM-backed approaches. Override with the OLLAMA_MODEL env var.
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
