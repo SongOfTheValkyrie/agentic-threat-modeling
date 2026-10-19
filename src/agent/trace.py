@@ -122,17 +122,36 @@ class AgentTrace:
 
 @dataclass
 class DeepenStep:
-    """One adaptive-deepening tool call during Explore (prioritized elements).
+    """One adaptive-deepening turn during Explore (prioritized elements).
 
-    ``tool`` is what the model asked for ("get_connections",
-    "search_knowledge", or "done"/unknown which stops deepening); ``used``
-    is False when the request was malformed or terminal, so the budget spent
-    vs. usefully spent can be told apart.
+    Distinguishing *would not* from *could not* explore matters for the failure
+    analysis: a step that ends because the model said "done" is a deliberate
+    choice to stop, whereas one that ends because the reply was not valid JSON
+    (or named an unknown tool) is a formatting/capability failure. The earlier
+    design collapsed both into one path, so these fields record them apart:
+
+    - ``raw_response``: the model's unparsed reply for this turn.
+    - ``parsed_action``: the JSON action extracted from it (empty if none).
+    - ``tool``: the requested tool, if any.
+    - ``termination_reason``: why deepening stopped at this step, one of
+      ``"done"`` (model chose to stop), ``"invalid_json"`` (unparseable reply),
+      ``"unknown_tool"`` (named a tool that does not exist),
+      ``"tool_error"`` (tool ran but raised), or ``"budget_exhausted"``;
+      ``None`` for a step that executed a tool without stopping.
+    - ``tool_success``: True only when a tool actually ran and returned a result.
     """
 
     tool: str | None
     args: dict = field(default_factory=dict)
-    used: bool = True
+    raw_response: str = ""
+    parsed_action: dict = field(default_factory=dict)
+    termination_reason: str | None = None
+    tool_success: bool = False
+
+    # Backwards-compatible alias: "used" now means "a tool actually succeeded".
+    @property
+    def used(self) -> bool:
+        return self.tool_success
 
 
 @dataclass
@@ -184,8 +203,17 @@ class PevTrace:
         return sum(e.dropped for e in self.elements)
 
     def deepened_elements(self) -> list[str]:
-        """Ids of elements that actually issued at least one deepening call."""
-        return [e.element_id for e in self.elements if e.deepen_steps]
+        """Ids of elements where a deepening tool call actually succeeded.
+
+        A non-empty ``deepen_steps`` is not enough: it may hold only an aborted
+        attempt (done / invalid JSON). Only a successful tool call counts as
+        real deepening.
+        """
+        return [
+            e.element_id
+            for e in self.elements
+            if any(s.tool_success for s in e.deepen_steps)
+        ]
 
     def to_dict(self) -> dict:
         return {

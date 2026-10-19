@@ -177,7 +177,12 @@ class StructuredAgentThreatModeler:
         tracing. Logging does not change which calls are made.
         """
         findings: list[str] = []
-        for _ in range(MAX_ADAPTIVE_CALLS):
+
+        def log(step: DeepenStep) -> None:
+            if record is not None:
+                record.deepen_steps.append(step)
+
+        for _turn in range(MAX_ADAPTIVE_CALLS):
             raw = self._llm.chat([
                 {"role": "system", "content": EXPLORE_SYSTEM},
                 {"role": "user", "content": DEEPEN_PROMPT.format(
@@ -188,27 +193,64 @@ class StructuredAgentThreatModeler:
             action = _extract_json(raw)
             tool = action.get("tool")
             args = action.get("args", {}) or {}
+
+            # Classify the turn so the trace can tell "would not" from
+            # "could not" explore (see DeepenStep). Only a tool that actually
+            # runs and returns advances deepening; everything else terminates.
+            if not action:
+                log(DeepenStep(
+                    tool=None, args={}, raw_response=raw, parsed_action={},
+                    termination_reason="invalid_json",
+                ))
+                break
             if tool == "get_connections":
-                if record is not None:
-                    record.deepen_steps.append(DeepenStep(tool=tool, args=args))
                 try:
-                    findings.append(tool_box.get_connections(args.get("component_id", "")))
+                    findings.append(
+                        tool_box.get_connections(args.get("component_id", ""))
+                    )
+                    log(DeepenStep(
+                        tool=tool, args=args, raw_response=raw,
+                        parsed_action=action, tool_success=True,
+                    ))
                 except ToolError as exc:
                     findings.append(f"(error: {exc})")
+                    log(DeepenStep(
+                        tool=tool, args=args, raw_response=raw,
+                        parsed_action=action, termination_reason="tool_error",
+                    ))
+                    break
             elif tool == "search_knowledge":
                 q = str(args.get("query", "")).strip()
-                if q:
-                    if record is not None:
-                        record.deepen_steps.append(DeepenStep(tool=tool, args=args))
-                    findings.append(tool_box.search_knowledge(q))
-            else:
-                # "done" or unrecognized -> stop deepening. Record the terminal
-                # step as unused so the trace shows the model chose to stop.
-                if record is not None:
-                    record.deepen_steps.append(
-                        DeepenStep(tool=tool, args=args, used=False)
-                    )
+                if not q:
+                    log(DeepenStep(
+                        tool=tool, args=args, raw_response=raw,
+                        parsed_action=action, termination_reason="tool_error",
+                    ))
+                    break
+                findings.append(tool_box.search_knowledge(q))
+                log(DeepenStep(
+                    tool=tool, args=args, raw_response=raw,
+                    parsed_action=action, tool_success=True,
+                ))
+            elif tool == "done":
+                log(DeepenStep(
+                    tool=tool, args=args, raw_response=raw,
+                    parsed_action=action, termination_reason="done",
+                ))
                 break
+            else:
+                log(DeepenStep(
+                    tool=tool, args=args, raw_response=raw,
+                    parsed_action=action, termination_reason="unknown_tool",
+                ))
+                break
+        else:
+            # Loop completed without a terminating break: budget ran out while
+            # the model was still issuing (successful) tool calls.
+            log(DeepenStep(
+                tool=None, args={}, termination_reason="budget_exhausted",
+            ))
+
         return "\n".join(findings)
 
     def _explore_element(

@@ -110,9 +110,57 @@ def test_trace_records_deepening_only_for_prioritized(sample_architecture):
     # One real tool call (get_connections) plus the terminal "done" step.
     assert len(rec.deepen_steps) == 2
     assert rec.deepen_steps[0].tool == "get_connections"
-    assert rec.deepen_steps[0].used is True
+    assert rec.deepen_steps[0].tool_success is True
+    assert rec.deepen_steps[0].termination_reason is None
+    # The terminal step is a deliberate "done", not a failure.
     assert rec.deepen_steps[-1].tool == "done"
-    assert rec.deepen_steps[-1].used is False
+    assert rec.deepen_steps[-1].tool_success is False
+    assert rec.deepen_steps[-1].termination_reason == "done"
+
+
+def test_deepening_invalid_json_is_not_counted_as_deepened(sample_architecture):
+    # A prioritized element whose deepening reply is unparseable must NOT count
+    # as deepened. This is the fix: "could not" explore differs from "would not".
+    first = sample_architecture.components[0].id
+    n = len(_element_ids(sample_architecture))
+
+    responses = [_plan(priorities=[first])]
+    responses.append("this is not json")          # deepen turn -> invalid_json
+    responses.append(_threats("spoofing"))         # explore
+    responses.append(_threats("spoofing"))         # verify
+    for _ in range(n - 1):
+        responses.append(_threats())
+
+    agent = _agent(responses)
+    agent.analyze(sample_architecture)
+    trace = agent.last_trace
+
+    rec = next(e for e in trace.elements if e.element_id == first)
+    assert rec.deepen_steps[0].termination_reason == "invalid_json"
+    assert rec.deepen_steps[0].tool_success is False
+    # Crucially: an aborted attempt does not make the element "deepened".
+    assert trace.deepened_elements() == []
+
+
+def test_deepening_unknown_tool_is_recorded(sample_architecture):
+    first = sample_architecture.components[0].id
+    n = len(_element_ids(sample_architecture))
+
+    responses = [_plan(priorities=[first])]
+    responses.append(json.dumps({"tool": "teleport"}))  # unknown tool
+    responses.append(_threats("spoofing"))              # explore
+    responses.append(_threats("spoofing"))              # verify
+    for _ in range(n - 1):
+        responses.append(_threats())
+
+    agent = _agent(responses)
+    agent.analyze(sample_architecture)
+    trace = agent.last_trace
+
+    rec = next(e for e in trace.elements if e.element_id == first)
+    assert rec.deepen_steps[0].termination_reason == "unknown_tool"
+    assert rec.deepen_steps[0].tool == "teleport"
+    assert trace.deepened_elements() == []
 
 
 def test_trace_records_verify_dropping_candidates(sample_architecture):
