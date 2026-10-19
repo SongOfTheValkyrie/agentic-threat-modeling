@@ -70,6 +70,8 @@ sentence>", "mitigation": "<one sentence>"}}, ...]}}. Return {{"threats": []}} \
 if none apply. JSON only."""
 
 # The explore phase may also let the model request bounded extra tool calls.
+# Baseline prompt: deliberately minimal — only the element id and type. Frozen;
+# do not edit (the "rich" variant below is a separate experiment).
 DEEPEN_PROMPT = """\
 Element ({kind}): {element_id}. This element was flagged important in the plan.
 You may request up to {budget} additional investigation step(s) to inform your
@@ -81,6 +83,38 @@ Available:
   {{"tool": "done"}}
 
 Respond with a SINGLE JSON object (one tool, or done). JSON only."""
+
+# Context-rich deepening prompt (experiment variant `agent_pev_richdeepen`).
+# Hypothesis: the baseline prompt gives the model too little to decide whether
+# extra investigation would help (just an id and type), which may explain why
+# it almost always stops immediately. This variant additionally supplies the
+# full element, the plan hypothesis, the knowledge already retrieved, and what
+# each tool is for, so a decision to deepen (or not) is actually informed.
+DEEPEN_PROMPT_RICH = """\
+You are deciding whether to investigate this {kind} further before listing its
+threats. It was prioritized in the plan, so extra investigation may be worth it.
+
+Element under analysis:
+{element_json}
+
+Plan hypothesis to check (may be empty): {hypothesis}
+
+Security knowledge already retrieved for it:
+{knowledge}
+
+You may request up to {budget} more investigation step(s), or stop now. Tools:
+  {{"tool": "get_connections", "args": {{"component_id": "<id>"}}}}
+      -> lists this component's data flows and components sharing a target,
+         useful for trust-boundary and shared-resource threats.
+  {{"tool": "search_knowledge", "args": {{"query": "<text>"}}}}
+      -> retrieves more security knowledge for a specific concern not yet
+         covered above.
+  {{"tool": "done"}}
+      -> stop investigating; the retrieved context is already sufficient.
+
+Choose get_connections or search_knowledge only if it would reveal something the
+context above does not already show. Respond with a SINGLE JSON object. JSON \
+only."""
 
 VERIFY_SYSTEM = (
     "You are a senior security reviewer validating proposed threats. For the "
@@ -134,19 +168,55 @@ def _candidate_threats(data: dict) -> list[dict]:
 
 
 class StructuredAgentThreatModeler:
-    """Plan-Explore-Verify agent (see DESIGN_agent_pev.md)."""
+    """Plan-Explore-Verify agent (see DESIGN_agent_pev.md).
 
-    name = "agent_pev"
+    Ablation switches isolate each phase's contribution. The defaults reproduce
+    the frozen baseline exactly, so ``StructuredAgentThreatModeler(llm)`` is the
+    unchanged ``agent_pev``. Turning a switch off yields a named variant:
+
+    - ``use_plan=False``: skip the plan phase. With no priorities, no element is
+      prioritized (so adaptive deepening never runs) and no hypotheses are
+      injected into Explore. Tests whether planning improves detection.
+    - ``use_verify=False``: skip the verify phase and keep every candidate
+      Explore proposes. Tests whether Verify actually improves precision.
+
+    The ``variant`` name is used as the approach label in results and traces so
+    ablation runs can be told apart; it defaults from the active switches.
+    """
 
     def __init__(
         self,
         llm: LLMClient,
         retriever: Retriever | None = None,
         k: int = 4,
+        use_plan: bool = True,
+        use_verify: bool = True,
+        rich_deepen: bool = False,
+        variant: str | None = None,
     ):
         self._llm = llm
         self._retriever = retriever or KeywordRetriever(load_knowledge_base())
         self._k = k
+        self._use_plan = use_plan
+        self._use_verify = use_verify
+        # When True, the deepening step uses the context-rich prompt instead of
+        # the minimal baseline one (experiment: does more context make the model
+        # actually investigate?). Baseline stays False.
+        self._rich_deepen = rich_deepen
+        self.name = variant or self._default_variant()
+
+    def _default_variant(self) -> str:
+        """Derive a label from the active switches (baseline -> 'agent_pev')."""
+        if self._use_plan and self._use_verify and not self._rich_deepen:
+            return "agent_pev"
+        suffix = ""
+        if not self._use_plan:
+            suffix += "_noplan"
+        if not self._use_verify:
+            suffix += "_noverify"
+        if self._rich_deepen:
+            suffix += "_richdeepen"
+        return "agent_pev" + suffix
 
     # --- Phase 1: Plan ----------------------------------------------------
 
@@ -164,31 +234,62 @@ class StructuredAgentThreatModeler:
 
     # --- Phase 2: Explore (deterministic over all elements) ---------------
 
+    def _deepen_prompt(
+        self, kind: str, element_id: str, element_json: str,
+        hypothesis: str, knowledge: str,
+    ) -> str:
+        """Build the deepening prompt for the active variant.
+
+        The baseline uses the minimal prompt (id + type only); the rich variant
+        adds the full element, plan hypothesis, and already-retrieved knowledge.
+        """
+        if self._rich_deepen:
+            return DEEPEN_PROMPT_RICH.format(
+                kind=kind, element_json=element_json,
+                hypothesis=hypothesis or "(none)",
+                knowledge=knowledge or "(none retrieved)",
+                budget=MAX_ADAPTIVE_CALLS,
+            )
+        return DEEPEN_PROMPT.format(
+            kind=kind, element_id=element_id, budget=MAX_ADAPTIVE_CALLS,
+        )
+
     def _deepen(
         self,
         kind: str,
         element_id: str,
         tool_box: ToolBox,
         record: ElementRecord | None = None,
+        element_json: str = "",
+        hypothesis: str = "",
+        knowledge: str = "",
     ) -> str:
         """Plan-driven adaptive deepening, bounded by MAX_ADAPTIVE_CALLS.
 
         If ``record`` is given, each deepening tool call is logged to it for
-        tracing. Logging does not change which calls are made.
+        tracing. Logging does not change which calls are made. The extra context
+        args are only used by the rich-deepen prompt variant.
         """
         findings: list[str] = []
+        prompt = self._deepen_prompt(
+            kind, element_id, element_json, hypothesis, knowledge
+        )
 
         def log(step: DeepenStep) -> None:
             if record is not None:
                 record.deepen_steps.append(step)
 
         for _turn in range(MAX_ADAPTIVE_CALLS):
+            # The chat must end on a user turn: a trailing assistant message
+            # leaves the model nothing to answer and it returns an empty string
+            # (which then parses as no action). So any findings so far are
+            # appended to the user prompt instead of sent as an assistant turn.
+            user_content = prompt
+            if findings:
+                user_content += "\n\nFindings so far:\n" + "\n".join(findings)
             raw = self._llm.chat([
                 {"role": "system", "content": EXPLORE_SYSTEM},
-                {"role": "user", "content": DEEPEN_PROMPT.format(
-                    kind=kind, element_id=element_id, budget=MAX_ADAPTIVE_CALLS,
-                )},
-                {"role": "assistant", "content": "\n".join(findings) or "(none yet)"},
+                {"role": "user", "content": user_content},
             ])
             action = _extract_json(raw)
             tool = action.get("tool")
@@ -261,10 +362,15 @@ class StructuredAgentThreatModeler:
         # Mandatory knowledge search (same query logic as Fixed RAG).
         knowledge = tool_box.search_knowledge(query)
 
-        # Plan-driven adaptive deepening only for prioritized elements.
+        # Plan-driven adaptive deepening only for prioritized elements. The
+        # context args are ignored unless the rich-deepen variant is active.
         extra = ""
         if prioritized:
-            deep = self._deepen(kind, element_id, tool_box, record=record)
+            deep = self._deepen(
+                kind, element_id, tool_box, record=record,
+                element_json=element_json, hypothesis=hypothesis,
+                knowledge=knowledge,
+            )
             if deep:
                 extra = f"\nAdditional findings:\n{deep}\n"
 
@@ -299,9 +405,16 @@ class StructuredAgentThreatModeler:
     def analyze(self, architecture: Architecture) -> list[Threat]:
         tool_box = ToolBox(architecture, self._retriever, k=self._k)
         self.last_tool_box = tool_box  # expose usage (retrieval_calls) to caller
-        plan = self._plan(architecture, tool_box)
-        priorities = plan["priorities"]
-        hypotheses = plan["hypotheses"]
+
+        # Phase 1 (ablatable): without a plan there are no priorities or
+        # hypotheses, so deepening never fires and Explore gets no hypothesis.
+        if self._use_plan:
+            plan = self._plan(architecture, tool_box)
+            priorities = plan["priorities"]
+            hypotheses = plan["hypotheses"]
+        else:
+            priorities = set()
+            hypotheses = {}
 
         # Record the plan outcome and per-element explore/verify so the pipeline
         # can be inspected offline (see trace.py). Tracing does not change the
@@ -310,6 +423,7 @@ class StructuredAgentThreatModeler:
         trace = PevTrace(
             architecture=architecture.id,
             model=model_name,
+            variant=self.name,
             priorities=sorted(priorities),
             hypotheses={str(k): str(v) for k, v in hypotheses.items()},
         )
@@ -339,7 +453,11 @@ class StructuredAgentThreatModeler:
                 kind, element_id, element_json, query, hypothesis,
                 prioritized, tool_box, record=record,
             )
-            confirmed = self._verify_element(kind, element_json, candidates)
+            # Phase 3 (ablatable): without Verify, keep every proposed candidate.
+            if self._use_verify:
+                confirmed = self._verify_element(kind, element_json, candidates)
+            else:
+                confirmed = candidates
 
             record.proposed = len(candidates)
             record.confirmed = len(confirmed)

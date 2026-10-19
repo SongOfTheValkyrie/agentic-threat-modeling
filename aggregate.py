@@ -70,6 +70,22 @@ def aggregate(runs: list[dict]) -> None:
                 parts.append(f"{d.value}={m:.2f} ±{s:.2f}")
         if parts:
             print(f"  recall by difficulty:  {'   '.join(parts)}")
+
+        # Cost metrics (only where logged: LLM-backed approaches). This turns
+        # the comparison from "is it better?" into "is it worth the extra
+        # calls?", which is the project's central question.
+        cost_parts = []
+        for field, label in (
+            ("llm_calls", "llm_calls"),
+            ("retrieval_calls", "retrieval_calls"),
+            ("tokens", "tokens"),
+        ):
+            vals = [r[field] for r in rows if r.get(field) is not None]
+            if vals:
+                m, s = _mean_std([float(v) for v in vals])
+                cost_parts.append(f"{label} {m:.1f} ±{s:.1f}")
+        if cost_parts:
+            print(f"  cost:  {'   '.join(cost_parts)}")
         print()
 
 

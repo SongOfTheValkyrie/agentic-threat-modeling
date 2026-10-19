@@ -83,6 +83,32 @@ def build_modelers() -> list[ThreatModeler]:
             StructuredAgentThreatModeler(llm=OllamaClient(model=OLLAMA_MODEL))
         )
 
+    # Ablation variants of agent_pev (baseline above stays unchanged). Each
+    # disables one phase to isolate its contribution; they carry distinct
+    # approach labels so their results can be told apart.
+    if os.environ.get("AGENT_PEV_NOPLAN") == "1":
+        modelers.append(
+            StructuredAgentThreatModeler(
+                llm=OllamaClient(model=OLLAMA_MODEL), use_plan=False
+            )
+        )
+
+    if os.environ.get("AGENT_PEV_NOVERIFY") == "1":
+        modelers.append(
+            StructuredAgentThreatModeler(
+                llm=OllamaClient(model=OLLAMA_MODEL), use_verify=False
+            )
+        )
+
+    # Experiment variant: context-rich deepening prompt (not an ablation; it
+    # adds information rather than removing a phase).
+    if os.environ.get("AGENT_PEV_RICHDEEPEN") == "1":
+        modelers.append(
+            StructuredAgentThreatModeler(
+                llm=OllamaClient(model=OLLAMA_MODEL), rich_deepen=True
+            )
+        )
+
     return modelers
 
 

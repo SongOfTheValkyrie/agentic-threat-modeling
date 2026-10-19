@@ -183,6 +183,9 @@ class PevTrace:
 
     architecture: str
     model: str
+    # Agent variant label (e.g. "agent_pev", "agent_pev_noplan"), so ablation
+    # runs can be told apart in saved traces.
+    variant: str = "agent_pev"
     priorities: list[str] = field(default_factory=list)
     hypotheses: dict[str, str] = field(default_factory=dict)
     elements: list[ElementRecord] = field(default_factory=list)
@@ -220,7 +223,7 @@ class PevTrace:
             "timestamp": datetime.now(UTC).isoformat(),
             "architecture": self.architecture,
             "model": self.model,
-            "agent": "agent_pev",
+            "agent": self.variant,
             "priorities": self.priorities,
             "hypotheses": self.hypotheses,
             "num_reported": self.num_reported,
