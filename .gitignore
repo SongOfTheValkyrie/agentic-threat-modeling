@@ -35,3 +35,6 @@ htmlcov/
 
 # Benchmark run results (local measurements, not versioned)
 results/
+
+# Local run logs (tee output from sweep scripts)
+*_run.log

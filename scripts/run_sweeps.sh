@@ -14,6 +14,10 @@
 
 set -euo pipefail
 
+# Run from the project root regardless of where the script is invoked from, so
+# the relative paths below (results/, main.py) resolve correctly.
+cd "$(dirname "$0")/.."
+
 RUNS="${RUNS:-5}"
 export RUNS
 
@@ -22,6 +26,22 @@ if [[ -n "${ONLY:-}" ]]; then
   export ONLY
   echo "Restricting to architecture(s): ${ONLY}"
 fi
+
+# Archive (never delete) any prior results log and traces so this sweep starts
+# clean and nothing from earlier sessions gets mixed in or lost.
+STAMP="$(date +%Y%m%dT%H%M%S)"
+if [[ -f results/results.jsonl ]]; then
+  mv results/results.jsonl "results/results.archive_${STAMP}.jsonl"
+  echo "Archived previous results.jsonl -> results/results.archive_${STAMP}.jsonl"
+fi
+shopt -s nullglob
+old_traces=(results/traces/*.json)
+if (( ${#old_traces[@]} > 0 )); then
+  mkdir -p "results/traces_archive_${STAMP}"
+  mv "${old_traces[@]}" "results/traces_archive_${STAMP}/"
+  echo "Archived ${#old_traces[@]} previous trace(s) -> results/traces_archive_${STAMP}/"
+fi
+shopt -u nullglob
 
 echo "Sweeps starting at $(date '+%Y-%m-%d %H:%M:%S')  (RUNS=${RUNS})"
 echo "Results append to results/results.jsonl"
