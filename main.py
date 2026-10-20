@@ -118,6 +118,16 @@ def build_modelers() -> list[ThreatModeler]:
             )
         )
 
+    # Experiment variant: adaptive deepening prompt (stopping is valid, tools
+    # separated by purpose, repeat queries discouraged). The targeted iteration
+    # to make deepening actually adaptive.
+    if os.environ.get("AGENT_PEV_ADAPTIVEDEEPEN") == "1":
+        modelers.append(
+            StructuredAgentThreatModeler(
+                llm=OllamaClient(model=OLLAMA_MODEL), adaptive_deepen=True
+            )
+        )
+
     return modelers
 
 

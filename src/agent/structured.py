@@ -116,6 +116,42 @@ Choose get_connections or search_knowledge only if it would reveal something the
 context above does not already show. Respond with a SINGLE JSON object. JSON \
 only."""
 
+# Adaptive deepening prompt (experiment variant `agent_pev_adaptivedeepen`).
+# Targets the measured failure of the baseline deepening: it called
+# search_knowledge repeatedly (often with identical queries), never used
+# get_connections, and never stopped early. This prompt makes the decision
+# explicit: stopping is a good outcome, the two tools answer different
+# questions, and repeating a prior query is pointless. The findings so far are
+# appended by _deepen, so the model can see when it already has enough.
+DEEPEN_PROMPT_ADAPTIVE = """\
+You are deciding whether ONE more investigation step would improve the threat
+analysis of this {kind}, or whether you already have enough to proceed.
+
+Element under analysis:
+{element_json}
+
+Plan hypothesis to check (may be empty): {hypothesis}
+
+Security knowledge already retrieved for it:
+{knowledge}
+
+Decide with these rules:
+- If the element, hypothesis, and retrieved knowledge above already let you
+  reason about its threats, choose "done". Stopping early is a good outcome, not
+  a failure — only investigate when there is a concrete open question.
+- Use "get_connections" to learn how this component connects to others (shared
+  data stores, trust-boundary crossings, who else reaches the same target). Use
+  it when a threat depends on relationships, not on this element alone.
+- Use "search_knowledge" only for a NEW, specific concern not already covered by
+  the knowledge above. Do not repeat a query whose answer you already have.
+
+Tools:
+  {{"tool": "get_connections", "args": {{"component_id": "<id>"}}}}
+  {{"tool": "search_knowledge", "args": {{"query": "<text>"}}}}
+  {{"tool": "done"}}
+
+Respond with a SINGLE JSON object. JSON only."""
+
 VERIFY_SYSTEM = (
     "You are a senior security reviewer validating proposed threats. For the "
     "given element, keep only threats that genuinely and specifically apply to "
@@ -198,6 +234,7 @@ class StructuredAgentThreatModeler:
         use_verify: bool = True,
         use_deepening: bool = True,
         rich_deepen: bool = False,
+        adaptive_deepen: bool = False,
         variant: str | None = None,
     ):
         self._llm = llm
@@ -212,6 +249,10 @@ class StructuredAgentThreatModeler:
         # the minimal baseline one (experiment: does more context make the model
         # actually investigate?). Baseline stays False.
         self._rich_deepen = rich_deepen
+        # When True, use the adaptive deepening prompt that makes stopping a
+        # valid choice, separates the two tools by purpose, and discourages
+        # repeat queries. Targets the measured baseline deepening failure.
+        self._adaptive_deepen = adaptive_deepen
         self.name = variant or self._default_variant()
 
     def _default_variant(self) -> str:
@@ -221,6 +262,7 @@ class StructuredAgentThreatModeler:
             and self._use_verify
             and self._use_deepening
             and not self._rich_deepen
+            and not self._adaptive_deepen
         ):
             return "agent_pev"
         suffix = ""
@@ -232,6 +274,8 @@ class StructuredAgentThreatModeler:
             suffix += "_nodeepen"
         if self._rich_deepen:
             suffix += "_richdeepen"
+        if self._adaptive_deepen:
+            suffix += "_adaptivedeepen"
         return "agent_pev" + suffix
 
     # --- Phase 1: Plan ----------------------------------------------------
@@ -257,8 +301,16 @@ class StructuredAgentThreatModeler:
         """Build the deepening prompt for the active variant.
 
         The baseline uses the minimal prompt (id + type only); the rich variant
-        adds the full element, plan hypothesis, and already-retrieved knowledge.
+        adds the full element, plan hypothesis, and already-retrieved knowledge;
+        the adaptive variant additionally makes stopping a valid choice and
+        separates the tools by purpose.
         """
+        if self._adaptive_deepen:
+            return DEEPEN_PROMPT_ADAPTIVE.format(
+                kind=kind, element_json=element_json,
+                hypothesis=hypothesis or "(none)",
+                knowledge=knowledge or "(none retrieved)",
+            )
         if self._rich_deepen:
             return DEEPEN_PROMPT_RICH.format(
                 kind=kind, element_json=element_json,

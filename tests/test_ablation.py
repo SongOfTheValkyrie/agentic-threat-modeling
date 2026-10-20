@@ -272,6 +272,45 @@ def test_rich_deepen_prompt_handles_empty_context():
     assert "(none retrieved)" in prompt
 
 
+# --- adaptive_deepen variant ----------------------------------------------
+
+
+def test_adaptive_deepen_variant_name():
+    assert _agent([], adaptive_deepen=True).name == "agent_pev_adaptivedeepen"
+
+
+def test_adaptive_deepen_prompt_targets_the_failure_modes():
+    agent = _agent([], adaptive_deepen=True)
+    prompt = _deepen_prompt_for(
+        agent, "component", "shared_db",
+        element_json='{"id": "shared_db", "stores_sensitive_data": true}',
+        hypothesis="cross-tenant access?",
+        knowledge="- [CWE-639] IDOR",
+    )
+    # Supplies full context.
+    assert "shared_db" in prompt
+    assert "cross-tenant access?" in prompt
+    assert "CWE-639" in prompt
+    # Makes stopping explicitly valid (the "always budget_exhausted" failure).
+    assert "done" in prompt.lower()
+    assert "stopping early is a good outcome" in prompt.lower()
+    # Separates the two tools by purpose (the "only search_knowledge" failure).
+    assert "get_connections" in prompt
+    assert "search_knowledge" in prompt
+    # Discourages repeat queries (the "identical repeat query" failure).
+    assert "do not repeat" in prompt.lower()
+
+
+def test_adaptive_deepen_is_distinct_from_rich_and_baseline():
+    # The three deepening prompts must actually differ for the same element.
+    args = ("component", "api", '{"id": "api"}', "h", "- know")
+    base = _deepen_prompt_for(_agent([]), *args)
+    rich = _deepen_prompt_for(_agent([], rich_deepen=True), *args)
+    adaptive = _deepen_prompt_for(_agent([], adaptive_deepen=True), *args)
+    assert base != rich != adaptive
+    assert base != adaptive
+
+
 # --- deepening conversation shape (regression) ----------------------------
 
 

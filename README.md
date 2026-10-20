@@ -162,7 +162,9 @@ RAG=1 AGENT=1 AGENT_PEV=1 uv run python main.py
 | `AGENT_PEV` | off | Enable the Plan–Explore–Verify agent (needs Ollama). |
 | `AGENT_PEV_NOPLAN` | off | Ablation: `agent_pev` with the plan phase disabled. |
 | `AGENT_PEV_NOVERIFY` | off | Ablation: `agent_pev` with the verify phase disabled. |
+| `AGENT_PEV_NODEEPEN` | off | Ablation: `agent_pev` with adaptive deepening disabled (plan/retrieval/verify intact). |
 | `AGENT_PEV_RICHDEEPEN` | off | Variant: `agent_pev` with the context-rich deepening prompt. |
+| `AGENT_PEV_ADAPTIVEDEEPEN` | off | Variant: `agent_pev` with the adaptive deepening prompt (stopping valid, tools separated by purpose). |
 | `OLLAMA_MODEL` | `llama3.1:8b` | Model used by all LLM-backed approaches. |
 | `RUNS` | `1` | Repeat the full sweep N times, each with a distinct run index, so LLM variance can be captured. |
 | `HOLDOUT` | off | Run the held-out test architectures (`benchmark/holdout/`) instead of the development set. |

@@ -115,14 +115,49 @@ agent need not beat RAG — that is the question — but it must:
 Only after these hold do we freeze the implementation and run the final
 comparison (including the untouched holdout set).
 
+## 2026-10-20 — Deepening ablation and the adaptive-prompt iteration (n=1, multi_tenant_saas)
+
+One diagnostic run each on `multi_tenant_saas` (dev architecture). n=1, so these
+are qualitative signals, not statistics; threat-level keys (`matched_keys` /
+`missed_keys`) were compared, not just counts.
+
+| Variant | deepen outcome | tool calls | F1 | matched / missed |
+|---|---|---|---|---|
+| `agent_pev` (baseline) | `budget_exhausted` ×4 | 3 `search_knowledge` per element, 0 `get_connections` | 0.52 | 8 / 4 |
+| `agent_pev_nodeepen` | — (no deepening) | 0 | 0.48 | 8 / 4 |
+| `agent_pev_adaptivedeepen` | `done` ×4 | 0 | 0.48 | 8 / 4 |
+
+Findings:
+
+1. **The agent's deepening decision is prompt-framed, not situation-driven.**
+   The baseline prompt ("you have 3 steps") makes it spend all three every
+   time; the adaptive prompt ("stopping is good, only investigate an open
+   question") makes it stop immediately every time. Neither produced
+   element-dependent behaviour. Acceptance criterion 1 (choose sensibly among
+   the tools) is **not met** by either prompt on this model.
+
+2. **Deepening changed no threat match.** `agent_pev` and
+   `agent_pev_adaptivedeepen` produced byte-identical `matched_keys` and
+   `missed_keys` — the three extra tool calls per element did not add or remove
+   a single detected threat.
+
+3. **The only measurable effect of deepening was precision.** Baseline avoided
+   2 false positives (F1 0.52 vs 0.48, same 8 true positives), i.e. the extra
+   context slightly helped rejection, not discovery. Weak at n=1.
+
+Interpretation (scoped): with `llama3.1:8b`, the decision *whether* to explore
+was governed by prompt wording rather than by the element's actual information
+need. This points to a model-capability limit for adaptive tool use, not a
+prompt bug — the same model handles Plan/Explore/Verify JSON fine. A
+tool-calling-tuned model is the natural next comparison, changing only
+`OLLAMA_MODEL`.
+
 ### Next
 
-1. Measure the clean deepening ablation: `agent_pev` vs. `agent_pev_nodeepen`
-   (only deepening differs) — does adaptive exploration help at all?
-2. Build a new deepening variant (separate name, baseline stays frozen) that
-   shows the model prior findings, makes `done` explicitly welcome, and states
-   each tool's purpose; measure it against the acceptance criteria.
-3. Only then: freeze and run the final comparison on the holdout set.
+1. Optional: repeat the three-way comparison with a tool-calling-tuned model
+   (e.g. `OLLAMA_MODEL=qwen2.5:7b`) to test the model-capability hypothesis.
+2. Freeze the implementations and run the final comparison on the untouched
+   holdout set (`cicd_pipeline`, `mobile_banking`).
 
 ## How to run the measurements
 
