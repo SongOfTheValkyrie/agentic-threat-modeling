@@ -20,6 +20,9 @@ def _result() -> EvaluationResult:
         precision=0.75,
         recall=0.6,
         f1=0.666666,
+        true_positive_keys=["web:spoofing", "db:information_disclosure", "api:tampering"],
+        false_positive_keys=["cache:spoofing"],
+        false_negative_keys=["db:tampering", "api:repudiation"],
     )
 
 
@@ -72,6 +75,19 @@ def test_to_dict_includes_only_difficulty_classes_with_ground_truth():
     assert set(rbd) == {"easy", "hard"}
     assert rbd["easy"] == {"detected": 2, "total": 2, "recall": 1.0}
     assert rbd["hard"]["recall"] == 0.3333
+
+
+def test_to_dict_includes_threat_level_keys():
+    d = _record().to_dict()
+    assert d["matched_keys"] == [
+        "web:spoofing", "db:information_disclosure", "api:tampering"
+    ]
+    assert d["missed_keys"] == ["db:tampering", "api:repudiation"]
+    assert d["unmatched_prediction_keys"] == ["cache:spoofing"]
+    # Counts and key lists stay consistent.
+    assert len(d["matched_keys"]) == d["true_positives"]
+    assert len(d["missed_keys"]) == d["false_negatives"]
+    assert len(d["unmatched_prediction_keys"]) == d["false_positives"]
 
 
 def test_to_dict_omits_usage_fields_when_none():

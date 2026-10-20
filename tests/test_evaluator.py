@@ -85,6 +85,29 @@ def test_partial_match_counts_fp_and_fn():
     assert result.recall == 0.5
     assert result.f1 == pytest.approx(0.5)
 
+    # Threat-level keys (A-light): matched / missed / unmatched predictions.
+    assert result.true_positive_keys == ["web:spoofing"]
+    assert result.false_positive_keys == ["web:tampering"]
+    assert result.false_negative_keys == ["db:information_disclosure"]
+    # Keys stay consistent with the counts.
+    assert len(result.true_positive_keys) == result.true_positives
+    assert len(result.false_positive_keys) == result.false_positives
+    assert len(result.false_negative_keys) == result.false_negatives
+
+
+def test_key_lists_default_empty_and_consistent_on_perfect_match():
+    gt = [
+        _threat("web", StrideCategory.SPOOFING),
+        _threat("db", StrideCategory.INFORMATION_DISCLOSURE),
+    ]
+    result = evaluate(list(gt), gt)
+    assert result.false_positive_keys == []
+    assert result.false_negative_keys == []
+    assert sorted(result.true_positive_keys) == [
+        "db:information_disclosure",
+        "web:spoofing",
+    ]
+
 
 def test_duplicate_predictions_are_deduplicated_by_key():
     # Same (target, category) twice must not inflate true positives, because

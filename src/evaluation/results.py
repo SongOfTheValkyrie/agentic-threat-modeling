@@ -57,6 +57,13 @@ class RunRecord:
             },
             "latency_seconds": round(self.latency_seconds, 3),
             "num_threats": self.num_threats,
+            # Threat-level detail so two runs can be compared beyond counts:
+            # which ground-truth keys were matched (true positives), which were
+            # missed (false negatives), and which predictions matched nothing
+            # (false positives). Each key is "<target>:<category>".
+            "matched_keys": self.result.true_positive_keys,
+            "missed_keys": self.result.false_negative_keys,
+            "unmatched_prediction_keys": self.result.false_positive_keys,
         }
         # Only include usage metrics when provided, keeping older records' shape.
         for key, value in (

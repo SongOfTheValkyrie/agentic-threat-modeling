@@ -33,7 +33,9 @@ def _load(directory: str) -> list[dict]:
 
 
 def _is_pev(trace: dict) -> bool:
-    return trace.get("agent") == "agent_pev"
+    # Match the baseline and every ablation/experiment variant
+    # (agent_pev, agent_pev_nodeepen, agent_pev_richdeepen, ...).
+    return str(trace.get("agent", "")).startswith("agent_pev")
 
 
 def _summarize_free(trace: dict) -> str:
@@ -123,35 +125,41 @@ def main() -> None:
         print()
 
     if pev:
-        print("=== Plan-Explore-Verify agent (agent_pev) ===")
-        for t in sorted(pev, key=lambda x: x["architecture"]):
-            print(f"{t['architecture']:24} {_summarize_pev(t)}")
-
-        # Aggregate the key finding: how often adaptive deepening succeeded,
-        # and when it did not, whether the model chose to stop ("done") or
-        # failed to produce a usable action (invalid_json / unknown_tool).
-        total_prio = total_real = 0
-        agg_reasons: dict[str, int] = {}
+        # Group by variant so the baseline and each ablation are reported
+        # separately (agent_pev vs. agent_pev_nodeepen vs. ...).
+        variants: dict[str, list[dict]] = {}
         for t in pev:
-            p, r = _deepen_stats(t)
-            total_prio += p
-            total_real += r
-            for k, v in _termination_reasons(t).items():
-                agg_reasons[k] = agg_reasons.get(k, 0) + v
-        print()
-        print(
-            f"Adaptive deepening: {total_real}/{total_prio} prioritized elements "
-            f"had a successful extra tool call."
-        )
-        if agg_reasons:
-            reason_str = "  ".join(
-                f"{k}={v}" for k, v in sorted(agg_reasons.items())
-            )
-            print(f"Deepening turns ended by:  {reason_str}")
+            variants.setdefault(t.get("agent", "agent_pev"), []).append(t)
+
+        for variant in sorted(variants):
+            group = variants[variant]
+            print(f"=== Plan-Explore-Verify agent ({variant}) ===")
+            for t in sorted(group, key=lambda x: x["architecture"]):
+                print(f"{t['architecture']:24} {_summarize_pev(t)}")
+
+            # Per-variant deepening roll-up.
+            total_prio = total_real = 0
+            agg_reasons: dict[str, int] = {}
+            for t in group:
+                p, r = _deepen_stats(t)
+                total_prio += p
+                total_real += r
+                for k, v in _termination_reasons(t).items():
+                    agg_reasons[k] = agg_reasons.get(k, 0) + v
             print(
-                "  (\"done\" = model chose to stop; \"invalid_json\" / "
-                "\"unknown_tool\" = it could not form a valid action.)"
+                f"  deepening: {total_real}/{total_prio} prioritized elements "
+                f"had a successful extra tool call."
             )
+            if agg_reasons:
+                reason_str = "  ".join(
+                    f"{k}={v}" for k, v in sorted(agg_reasons.items())
+                )
+                print(f"  deepening turns ended by:  {reason_str}")
+            print()
+        print(
+            '("done" = model chose to stop; "invalid_json" / "unknown_tool" '
+            "= it could not form a valid action.)"
+        )
 
 
 if __name__ == "__main__":

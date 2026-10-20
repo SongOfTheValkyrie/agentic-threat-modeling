@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.models.threat import Difficulty, Threat
 
@@ -11,6 +11,13 @@ class EvaluationResult:
     precision: float
     recall: float
     f1: float
+    # The actual matched / spurious / missed threat keys, each a
+    # "<target>:<category>" string. Two variants can share precision/recall yet
+    # catch *different* threats; these let a run be compared at the threat level,
+    # not just by counts. Default empty keeps older callers working.
+    true_positive_keys: list[str] = field(default_factory=list)
+    false_positive_keys: list[str] = field(default_factory=list)
+    false_negative_keys: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -45,9 +52,17 @@ def evaluate(
     predicted_keys = {threat_key(t) for t in predictions}
     ground_truth_keys = {threat_key(t) for t in ground_truth}
 
-    true_positives = len(predicted_keys & ground_truth_keys)
-    false_positives = len(predicted_keys - ground_truth_keys)
-    false_negatives = len(ground_truth_keys - predicted_keys)
+    tp_keys = predicted_keys & ground_truth_keys
+    fp_keys = predicted_keys - ground_truth_keys
+    fn_keys = ground_truth_keys - predicted_keys
+
+    true_positives = len(tp_keys)
+    false_positives = len(fp_keys)
+    false_negatives = len(fn_keys)
+
+    def _fmt(keys: set[tuple[str, str]]) -> list[str]:
+        # Stable, serializable form: "<target>:<category>", sorted.
+        return sorted(f"{target}:{category}" for target, category in keys)
 
     precision = (
         true_positives / (true_positives + false_positives)
@@ -74,6 +89,9 @@ def evaluate(
         precision=precision,
         recall=recall,
         f1=f1,
+        true_positive_keys=_fmt(tp_keys),
+        false_positive_keys=_fmt(fp_keys),
+        false_negative_keys=_fmt(fn_keys),
     )
 
 
