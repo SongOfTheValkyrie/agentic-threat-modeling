@@ -76,12 +76,53 @@ hard-recall 5/6 vs. the free `agent` 1/6, i.e. the structured pipeline closed
 the agent's gap on the hardest architecture. To be confirmed by the `RUNS=5`
 sweep.
 
+## 2026-10-20 — Deepening failure analysis and acceptance criteria
+
+**Deepening is not adaptive (measured, not assumed).** After the empty-response
+fix, the PEV agent issues real tool calls on 100/100 prioritized elements, but
+inspecting the stored `parsed_action` of every deepening step shows the calls
+are not meaningful exploration:
+
+- **300 deepening tool calls, all `search_knowledge`; `get_connections`: 0.**
+  The agent never uses the connection-exploration tool (the one that could
+  surface shared-resource / tenant-isolation threats).
+- **35/100 elements issued at least one word-for-word identical repeat query.**
+  With a deterministic retriever such a repeat returns the same snippets, i.e.
+  is information-free.
+- **Every element ends on `budget_exhausted`, never `done`.** The agent spends
+  its full 3-call budget regardless of the element.
+
+Conclusion: the agent executes its actions (goal 1) but does not yet make
+sensible, information-gaining decisions (goal 2). This explains mechanistically
+why deepening produced no quality gain — little new information entered.
+
+**Status of the current numbers.** The 5-run baseline ("RAG wins on 4/5") is a
+**development-phase finding**, not the final result, because the agent was still
+being debugged and does not yet meet the criteria below.
+
+### Acceptance criteria for a "functioning" adaptive agent (set before tuning)
+
+Fixed in advance so the agent is not tuned until it happens to beat RAG. The
+agent need not beat RAG — that is the question — but it must:
+
+1. Choose sensibly among `search_knowledge`, `get_connections`, and `done`
+   (not call one tool exclusively).
+2. Not repeat identical search queries.
+3. Produce tool calls that return genuinely new, relevant information.
+4. Not be required to exhaust its budget on every element (early `done` allowed
+   and expected when enough is known).
+
+Only after these hold do we freeze the implementation and run the final
+comparison (including the untouched holdout set).
+
 ### Next
 
-1. `RUNS=5` sweep on the development set for all approaches (means + std).
-2. Ablations: `agent_pev` without Verify, then without Plan.
-3. Re-measure deepening with the fixed trace; test a context-rich deepening
-   prompt as a new variant.
+1. Measure the clean deepening ablation: `agent_pev` vs. `agent_pev_nodeepen`
+   (only deepening differs) — does adaptive exploration help at all?
+2. Build a new deepening variant (separate name, baseline stays frozen) that
+   shows the model prior findings, makes `done` explicitly welcome, and states
+   each tool's purpose; measure it against the acceptance criteria.
+3. Only then: freeze and run the final comparison on the holdout set.
 
 ## How to run the measurements
 

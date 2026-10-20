@@ -107,12 +107,43 @@ def test_baseline_llm_call_sequence_is_unchanged(sample_architecture):
 def test_variant_names_reflect_disabled_phases():
     assert _agent([], use_plan=False).name == "agent_pev_noplan"
     assert _agent([], use_verify=False).name == "agent_pev_noverify"
+    assert _agent([], use_deepening=False).name == "agent_pev_nodeepen"
     assert (
         _agent([], use_plan=False, use_verify=False).name
         == "agent_pev_noplan_noverify"
     )
     # An explicit label overrides the derived one.
     assert _agent([], variant="custom").name == "custom"
+
+
+def test_no_deepening_keeps_plan_but_skips_deepening(sample_architecture):
+    """use_deepening=False isolates deepening: the plan still runs (priorities
+    and hypotheses present, elements still flagged prioritized) but no deepening
+    tool call is made. This is the clean "no deepening" ablation that
+    use_plan=False cannot provide."""
+    first = sample_architecture.components[0].id
+    n = _n(sample_architecture)
+
+    # Plan prioritizes the first element. With deepening OFF, no deepen call is
+    # consumed, so after the plan the responses are explore(/verify) per element.
+    responses = [_plan(priorities=[first], hypotheses={first: "h"})]
+    responses.append(_threats("spoofing"))  # explore first element
+    responses.append(_threats("spoofing"))  # verify first element
+    for _ in range(n - 1):
+        responses.append(_threats())
+
+    agent = _agent(responses, use_deepening=False)
+    agent.analyze(sample_architecture)
+    trace = agent.last_trace
+
+    assert trace.variant == "agent_pev_nodeepen"
+    # Plan still ran: the element is prioritized and carries its hypothesis.
+    rec = next(e for e in trace.elements if e.element_id == first)
+    assert rec.prioritized is True
+    assert rec.hypothesis == "h"
+    # But no deepening happened anywhere.
+    assert all(e.deepen_steps == [] for e in trace.elements)
+    assert trace.deepened_elements() == []
 
 
 # --- use_plan=False -------------------------------------------------------

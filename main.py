@@ -100,6 +100,15 @@ def build_modelers() -> list[ThreatModeler]:
             )
         )
 
+    # Ablation: PEV without adaptive deepening (plan/retrieval/verify intact).
+    # Isolates the contribution of the adaptive exploration itself.
+    if os.environ.get("AGENT_PEV_NODEEPEN") == "1":
+        modelers.append(
+            StructuredAgentThreatModeler(
+                llm=OllamaClient(model=OLLAMA_MODEL), use_deepening=False
+            )
+        )
+
     # Experiment variant: context-rich deepening prompt (not an ablation; it
     # adds information rather than removing a phase).
     if os.environ.get("AGENT_PEV_RICHDEEPEN") == "1":

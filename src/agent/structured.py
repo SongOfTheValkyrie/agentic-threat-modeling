@@ -179,6 +179,11 @@ class StructuredAgentThreatModeler:
       injected into Explore. Tests whether planning improves detection.
     - ``use_verify=False``: skip the verify phase and keep every candidate
       Explore proposes. Tests whether Verify actually improves precision.
+    - ``use_deepening=False``: skip only the adaptive deepening. Plan,
+      prioritization, hypotheses, mandatory retrieval, Explore, and Verify are
+      all unchanged. This isolates the contribution of the adaptive exploration
+      itself, which ``use_plan=False`` cannot (it also removes prioritization
+      and hypotheses).
 
     The ``variant`` name is used as the approach label in results and traces so
     ablation runs can be told apart; it defaults from the active switches.
@@ -191,6 +196,7 @@ class StructuredAgentThreatModeler:
         k: int = 4,
         use_plan: bool = True,
         use_verify: bool = True,
+        use_deepening: bool = True,
         rich_deepen: bool = False,
         variant: str | None = None,
     ):
@@ -199,6 +205,9 @@ class StructuredAgentThreatModeler:
         self._k = k
         self._use_plan = use_plan
         self._use_verify = use_verify
+        # Adaptive deepening on prioritized elements. Off isolates its effect
+        # while keeping every other phase identical to the baseline.
+        self._use_deepening = use_deepening
         # When True, the deepening step uses the context-rich prompt instead of
         # the minimal baseline one (experiment: does more context make the model
         # actually investigate?). Baseline stays False.
@@ -207,13 +216,20 @@ class StructuredAgentThreatModeler:
 
     def _default_variant(self) -> str:
         """Derive a label from the active switches (baseline -> 'agent_pev')."""
-        if self._use_plan and self._use_verify and not self._rich_deepen:
+        if (
+            self._use_plan
+            and self._use_verify
+            and self._use_deepening
+            and not self._rich_deepen
+        ):
             return "agent_pev"
         suffix = ""
         if not self._use_plan:
             suffix += "_noplan"
         if not self._use_verify:
             suffix += "_noverify"
+        if not self._use_deepening:
+            suffix += "_nodeepen"
         if self._rich_deepen:
             suffix += "_richdeepen"
         return "agent_pev" + suffix
@@ -362,10 +378,11 @@ class StructuredAgentThreatModeler:
         # Mandatory knowledge search (same query logic as Fixed RAG).
         knowledge = tool_box.search_knowledge(query)
 
-        # Plan-driven adaptive deepening only for prioritized elements. The
-        # context args are ignored unless the rich-deepen variant is active.
+        # Plan-driven adaptive deepening only for prioritized elements, and only
+        # when the deepening phase is enabled. The context args are ignored
+        # unless the rich-deepen variant is active.
         extra = ""
-        if prioritized:
+        if prioritized and self._use_deepening:
             deep = self._deepen(
                 kind, element_id, tool_box, record=record,
                 element_json=element_json, hypothesis=hypothesis,
