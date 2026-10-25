@@ -226,3 +226,46 @@ def test_write_trace_works_for_pev(tmp_path, sample_architecture):
     data = json.loads(path.read_text())
     assert data["agent"] == "agent_pev"
     assert data["architecture"] == sample_architecture.id
+
+
+def test_verify_drop_recorded_at_threat_level(sample_architecture):
+    """Explore proposes two categories on the first element; Verify keeps one.
+    The trace must record which key was dropped, so Verify can be inspected at
+    the threat level (did it drop a correct threat?)."""
+    n = len(_element_ids(sample_architecture))
+    responses = [_plan()]
+    responses.append(_threats("spoofing", "tampering"))  # explore: 2 candidates
+    responses.append(_threats("spoofing"))               # verify: keeps 1
+    for _ in range(n - 1):
+        responses.append(_threats())
+
+    agent = _agent(responses)
+    agent.analyze(sample_architecture)
+    rec = agent.last_trace.elements[0]
+
+    eid = rec.element_id
+    assert rec.proposed_keys == sorted([f"{eid}:spoofing", f"{eid}:tampering"])
+    assert rec.confirmed_keys == [f"{eid}:spoofing"]
+    assert rec.dropped_keys == [f"{eid}:tampering"]
+    # Serialized form carries dropped_keys too.
+    d = agent.last_trace.to_dict()
+    assert d["elements"][0]["dropped_keys"] == [f"{eid}:tampering"]
+
+
+def test_no_verify_keeps_all_proposed_keys(sample_architecture):
+    # With verify off, confirmed_keys == proposed_keys, nothing dropped.
+    n = _element_ids(sample_architecture)
+    responses = [_plan()]
+    responses.append(_threats("spoofing", "tampering"))  # explore: 2
+    for _ in range(len(n) - 1):
+        responses.append(_threats())
+
+    agent = StructuredAgentThreatModeler(
+        llm=FakeLLMClient(responses=responses),
+        retriever=KeywordRetriever([]),
+        use_verify=False,
+    )
+    agent.analyze(sample_architecture)
+    rec = agent.last_trace.elements[0]
+    assert rec.proposed_keys == rec.confirmed_keys
+    assert rec.dropped_keys == []

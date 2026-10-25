@@ -163,6 +163,7 @@ RAG=1 AGENT=1 AGENT_PEV=1 uv run python main.py
 | `AGENT_PEV_NOPLAN` | off | Ablation: `agent_pev` with the plan phase disabled. |
 | `AGENT_PEV_NOVERIFY` | off | Ablation: `agent_pev` with the verify phase disabled. |
 | `AGENT_PEV_NODEEPEN` | off | Ablation: `agent_pev` with adaptive deepening disabled (plan/retrieval/verify intact). |
+| `AGENT_PEV_EXPLOREONLY` | off | Ablation: `agent_pev` with neither plan nor verify (explore + mandatory retrieval only). |
 | `AGENT_PEV_RICHDEEPEN` | off | Variant: `agent_pev` with the context-rich deepening prompt. |
 | `AGENT_PEV_ADAPTIVEDEEPEN` | off | Variant: `agent_pev` with the adaptive deepening prompt (stopping valid, tools separated by purpose). |
 | `OLLAMA_MODEL` | `llama3.1:8b` | Model used by all LLM-backed approaches. |

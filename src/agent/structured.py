@@ -530,6 +530,16 @@ class StructuredAgentThreatModeler:
 
             record.proposed = len(candidates)
             record.confirmed = len(confirmed)
+            # Threat-level keys before/after Verify, in the same
+            # "<target>:<category>" form the evaluator uses, so dropped
+            # candidates can be checked against ground truth. Deduplicated
+            # because the evaluator matches on the key set, not on count.
+            record.proposed_keys = sorted(
+                {f"{element_id}:{c['category']}" for c in candidates}
+            )
+            record.confirmed_keys = sorted(
+                {f"{element_id}:{c['category']}" for c in confirmed}
+            )
             trace.add_element(record)
 
             is_component = kind == "component"

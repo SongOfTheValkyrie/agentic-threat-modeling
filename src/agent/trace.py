@@ -170,11 +170,21 @@ class ElementRecord:
     deepen_steps: list[DeepenStep] = field(default_factory=list)
     proposed: int = 0  # candidate threats from Explore
     confirmed: int = 0  # threats kept after Verify
+    # The actual "<target>:<category>" keys before and after Verify, so the
+    # verify phase can be inspected at the threat level: exactly which
+    # candidates it dropped, and whether any were correct (per ground truth).
+    proposed_keys: list[str] = field(default_factory=list)
+    confirmed_keys: list[str] = field(default_factory=list)
 
     @property
     def dropped(self) -> int:
         """Candidates discarded by Verify (proposed minus confirmed)."""
         return max(self.proposed - self.confirmed, 0)
+
+    @property
+    def dropped_keys(self) -> list[str]:
+        """Keys that Explore proposed but Verify removed."""
+        return sorted(set(self.proposed_keys) - set(self.confirmed_keys))
 
 
 @dataclass
@@ -235,7 +245,8 @@ class PevTrace:
             },
             "deepened_elements": self.deepened_elements(),
             "elements": [
-                {**asdict(e), "dropped": e.dropped} for e in self.elements
+                {**asdict(e), "dropped": e.dropped, "dropped_keys": e.dropped_keys}
+                for e in self.elements
             ],
         }
 

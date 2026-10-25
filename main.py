@@ -100,6 +100,17 @@ def build_modelers() -> list[ThreatModeler]:
             )
         )
 
+    # Ablation: Explore only — no plan and no verify (deterministic iteration
+    # with mandatory retrieval, nothing else). The corner of the 2x2 ablation.
+    if os.environ.get("AGENT_PEV_EXPLOREONLY") == "1":
+        modelers.append(
+            StructuredAgentThreatModeler(
+                llm=OllamaClient(model=OLLAMA_MODEL),
+                use_plan=False,
+                use_verify=False,
+            )
+        )
+
     # Ablation: PEV without adaptive deepening (plan/retrieval/verify intact).
     # Isolates the contribution of the adaptive exploration itself.
     if os.environ.get("AGENT_PEV_NODEEPEN") == "1":

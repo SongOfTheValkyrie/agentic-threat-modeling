@@ -152,11 +152,61 @@ prompt bug — the same model handles Plan/Explore/Verify JSON fine. A
 tool-calling-tuned model is the natural next comparison, changing only
 `OLLAMA_MODEL`.
 
+## 2026-10-25 — Why PEV loses to RAG (preliminary)
+
+Two causes, both reducing detection, investigated with the threat-level keys
+(`matched_keys` / `missed_keys` from the run log; `dropped_keys` from traces).
+**Preliminary:** single runs (temperature 0); to be confirmed by the repeated
+ablation below.
+
+**Cause 1 — the Plan phase narrows the STRIDE search space (main cause).**
+`agent_pev_noplan` beats `agent_pev` on F1 on all five dev architectures, and on
+four of five it finds *more* true positives:
+
+| Architecture | PEV F1 (TP) | NoPlan F1 (TP) |
+|---|---|---|
+| simple_web_api | 0.57 (4) | 0.71 (5) |
+| webapp_with_auth | 0.47 (9) | 0.51 (10) |
+| microservices_async | 0.48 (14) | 0.52 (15) |
+| cloud_ingest_pipeline | 0.45 (7) | 0.48 (8) |
+| multi_tenant_saas | 0.52 (8) | 0.57 (8, fewer FP) |
+
+The extra threats NoPlan recovers are systematically `tampering`,
+`repudiation`, `denial_of_service`, `elevation_of_privilege` — the categories a
+hypothesis-focused prompt overlooks. The plan hypotheses steer Explore toward
+the suspected (mostly confidentiality/access) threat and suppress the rest of
+STRIDE. RAG's plain "list all STRIDE threats for this element" covers broader.
+(Caveat: `noplan` also removes prioritization and deepening; but deepening was
+shown neutral, so the hypothesis injection is the remaining active difference.)
+
+**Cause 2 — Verify discards some correct threats (secondary).** On
+`multi_tenant_saas`, Verify dropped 7 candidates; 2 were in the ground truth and
+wrongly removed (`document_service:elevation_of_privilege`,
+`object_store:repudiation`). The other 5 were genuine false positives correctly
+filtered. So Verify mostly removes noise but costs a little recall — and one of
+the two it dropped is exactly a threat NoPlan recovers, so the two causes
+compound.
+
+Net picture: PEV's matched threats are almost a strict subset of RAG's. The
+agent machinery removes detections at both ends — Plan narrows the input,
+Verify trims the output — which is why more structure scored lower than fixed
+RAG here.
+
 ### Next
 
-1. Optional: repeat the three-way comparison with a tool-calling-tuned model
-   (e.g. `OLLAMA_MODEL=qwen2.5:7b`) to test the model-capability hypothesis.
-2. Freeze the implementations and run the final comparison on the untouched
+1. **Repeated ablation (several runs) to confirm the above**, four
+   configurations on the dev set:
+
+   | Config | Plan | Explore | Verify | env |
+   |---|---|---|---|---|
+   | PEV | yes | yes | yes | `AGENT_PEV=1` |
+   | NoPlan | no | yes | yes | `AGENT_PEV_NOPLAN=1` |
+   | NoVerify | yes | yes | no | `AGENT_PEV_NOVERIFY=1` |
+   | ExploreOnly | no | yes | no | `AGENT_PEV_EXPLOREONLY=1` |
+
+2. Optional: repeat with a tool-calling-tuned model (`OLLAMA_MODEL=qwen2.5:7b`)
+   to test the model-capability hypothesis for adaptive tool use.
+3. Freeze the implementations and run the final comparison on the untouched
    holdout set (`cicd_pipeline`, `mobile_banking`).
 
 ## How to run the measurements
