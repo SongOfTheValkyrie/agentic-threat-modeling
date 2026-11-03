@@ -32,6 +32,9 @@ class RunRecord:
     llm_calls: int | None = None
     retrieval_calls: int | None = None
     tokens: int | None = None
+    # Path of the file holding this run's full predictions (see predictions.py);
+    # None for records written before predictions were stored.
+    predictions_file: str | None = None
 
     def to_dict(self) -> dict:
         record = {
@@ -70,6 +73,7 @@ class RunRecord:
             ("llm_calls", self.llm_calls),
             ("retrieval_calls", self.retrieval_calls),
             ("tokens", self.tokens),
+            ("predictions_file", self.predictions_file),
         ):
             if value is not None:
                 record[key] = value

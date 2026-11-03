@@ -530,6 +530,10 @@ class StructuredAgentThreatModeler:
 
             record.proposed = len(candidates)
             record.confirmed = len(confirmed)
+            # Logging only: keep the full candidate texts (copies, so the trace
+            # cannot alias or alter the lists the pipeline continues to use).
+            record.proposed_threats = [dict(c) for c in candidates]
+            record.confirmed_threats = [dict(c) for c in confirmed]
             # Threat-level keys before/after Verify, in the same
             # "<target>:<category>" form the evaluator uses, so dropped
             # candidates can be checked against ground truth. Deduplicated

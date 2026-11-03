@@ -175,6 +175,12 @@ class ElementRecord:
     # candidates it dropped, and whether any were correct (per ground truth).
     proposed_keys: list[str] = field(default_factory=list)
     confirmed_keys: list[str] = field(default_factory=list)
+    # Full candidate threats (category, description, mitigation) before and after
+    # Verify, as the pipeline held them. The *_keys fields above are derived from
+    # these same lists. Stored so Verify can be analyzed at the level of causes
+    # (V2), which needs the text and not just the key.
+    proposed_threats: list[dict] = field(default_factory=list)
+    confirmed_threats: list[dict] = field(default_factory=list)
 
     @property
     def dropped(self) -> int:

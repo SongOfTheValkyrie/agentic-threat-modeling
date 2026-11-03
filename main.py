@@ -7,6 +7,7 @@ from src.agent.trace import write_trace
 from src.core import ThreatModeler
 from src.deterministic.modeler import DeterministicThreatModeler
 from src.evaluation.evaluator import evaluate, evaluate_by_difficulty
+from src.evaluation.predictions import write_predictions
 from src.evaluation.results import RunRecord, append_result
 from src.models.loader import load_architecture, load_ground_truth
 from src.models.threat import Difficulty
@@ -166,9 +167,23 @@ def run_benchmark(modeler: ThreatModeler, name: str, run_index: int = 0) -> None
     calls_before = getattr(client, "llm_calls", 0) if client else 0
     tokens_before = getattr(client, "tokens", 0) if client else 0
 
+    # Model name comes from the modeler's LLM client when it has one; the
+    # deterministic baseline has none.
+    model = getattr(client, "model", None) or "none"
+
     start = time.time()
     threats = modeler.analyze(architecture)
     elapsed = time.time() - start
+
+    # Persist the full predictions (with descriptions) before anything else
+    # reads them. This only records what the modeler already returned.
+    predictions_path = write_predictions(
+        approach=modeler.name,
+        model=model,
+        architecture=arch_label,
+        run_index=run_index,
+        threats=threats,
+    )
 
     # Optionally persist the agent's execution trace for offline diagnosis.
     # Only agents expose ``last_trace``; other approaches are skipped silently.
@@ -189,9 +204,6 @@ def run_benchmark(modeler: ThreatModeler, name: str, run_index: int = 0) -> None
     if tokens is not None and tokens_before:
         tokens -= tokens_before
 
-    # Model name comes from the modeler's LLM client when it has one; the
-    # deterministic baseline has none.
-    model = getattr(client, "model", None) or "none"
     append_result(
         RunRecord(
             approach=modeler.name,
@@ -205,6 +217,7 @@ def run_benchmark(modeler: ThreatModeler, name: str, run_index: int = 0) -> None
             llm_calls=llm_calls,
             retrieval_calls=usage.get("retrieval_calls"),
             tokens=tokens,
+            predictions_file=str(predictions_path),
         )
     )
 
