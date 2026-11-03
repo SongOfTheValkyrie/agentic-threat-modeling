@@ -1,0 +1,339 @@
+{
+  "schema": "v2-cause-list-draft",
+  "status": "DRAFT",
+  "gt_version": "V2.0-draft",
+  "architecture_id": "cloud_ingest_pipeline",
+  "provenance": {
+    "derived_from": {
+      "file": "benchmark/cloud_ingest_pipeline.json",
+      "sha256_16": "541b30977a0b1cde"
+    },
+    "not_used": [
+      "V1 ground truth",
+      "any V1 or later results, traces, or predictions",
+      "output of the deterministic baseline"
+    ],
+    "disclosure": "The drafting assistant also wrote this architecture file and the V1 ground truth earlier in the same working session and had seen V1 results. For this draft it opened only the architecture file named above. Prior exposure cannot be excluded, so independence of the content rests on the owner's review (gate G2). Because the same assistant designed the architecture, evidence-based reading mostly reproduces design intent."
+  },
+  "difficulty_operationalization": "Applies V2_SPEC.md section 5. easy: a stated value names a missing or disabled control whose security relevance is general knowledge. medium: the value names a mechanism or specialist control whose weakness must be known, or at least two stated facts have to be combined. hard: stated facts from at least two different elements or relationships must be combined and the weakness is not stated at any single one. Applied blind to model results and to deterministic-baseline output.",
+  "causes": [
+    {
+      "ref": "CIP-01",
+      "cause_id": "ingest_api.no_rate_limiting",
+      "target": "ingest_api",
+      "target_kind": "component",
+      "root_cause": "The ingest API has rate limiting disabled.",
+      "evidence": [
+        {"path": "components.ingest_api.config.rate_limiting_enabled", "observed": false, "role": "primary"},
+        {"path": "components.ingest_api.internet_exposed", "observed": true, "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Rate limiting is stated to be off on an internet-exposed endpoint, so request volume is not bounded.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The flag names the disabled control; the relevance of rate limiting is general knowledge."
+      },
+      "categories": [
+        {"category": "denial_of_service", "scenario": "A producer, or anyone able to reach the API, floods it and exhausts capacity or cost."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": ""
+    },
+    {
+      "ref": "CIP-02",
+      "cause_id": "raw_bucket.public_access_enabled",
+      "target": "raw_bucket",
+      "target_kind": "component",
+      "root_cause": "The raw data bucket is configured for public access.",
+      "evidence": [
+        {"path": "components.raw_bucket.config.public_access", "observed": true, "role": "primary"},
+        {"path": "components.raw_bucket.stores_sensitive_data", "observed": true, "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Public access is stated to be on for a bucket holding sensitive raw records, so those records can be accessed by parties outside the system.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The flag states public access in plain words; its relevance is general knowledge."
+      },
+      "categories": [
+        {"category": "information_disclosure", "scenario": "Anyone who can reach the bucket's public endpoint can access, at minimum read, the stored records."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": "The component attribute internet_exposed is false while config.public_access is true. The two disagree. This draft follows the explicit configuration; a reading based on the attribute alone would miss the cause. Public write access is not stated and is not claimed (see unsupported item CIP-U3)."
+    },
+    {
+      "ref": "CIP-03",
+      "cause_id": "raw_bucket.no_encryption_at_rest",
+      "target": "raw_bucket",
+      "target_kind": "component",
+      "root_cause": "The raw data bucket is not encrypted at rest.",
+      "evidence": [
+        {"path": "components.raw_bucket.config.encryption_at_rest", "observed": false, "role": "primary"},
+        {"path": "components.raw_bucket.stores_sensitive_data", "observed": true, "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Encryption at rest is stated to be off for sensitive data, so stored data is exposed to anyone obtaining storage-level access.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The flag names the disabled control; the relevance of encryption at rest is general knowledge."
+      },
+      "categories": [
+        {"category": "information_disclosure", "scenario": "Stored records can be read from storage media, snapshots or copies without any key barrier."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": "Same target and category as CIP-02 but a different control (access policy versus encryption). Kept separate."
+    },
+    {
+      "ref": "CIP-04",
+      "cause_id": "raw_bucket.no_versioning",
+      "target": "raw_bucket",
+      "target_kind": "component",
+      "root_cause": "The raw data bucket has versioning disabled, so overwritten or deleted objects cannot be restored.",
+      "evidence": [
+        {"path": "components.raw_bucket.config.versioning_enabled", "observed": false, "role": "primary"},
+        {"path": "data_flows.ingest_to_raw_bucket.source", "observed": "ingest_api", "role": "supporting"},
+        {"path": "data_flows.ingest_to_raw_bucket.target", "observed": "raw_bucket", "role": "supporting"},
+        {"path": "data_flows.producer_to_ingest.source", "observed": "producer", "role": "supporting"}
+      ],
+      "evidence_type": "derived",
+      "justification": "The missing control is stated. A write path from an external producer through the ingest API into the bucket is shown by the flows, so records can be overwritten or removed through it and cannot be recovered.",
+      "difficulty": {
+        "level": "medium",
+        "rationale": "The missing control has to be combined with the write path shown by the flows, and the impact is one of recoverability, not direct access."
+      },
+      "categories": [
+        {"category": "tampering", "scenario": "Records written through the ingest path are overwritten or deleted, by error or abuse, and cannot be restored."}
+      ],
+      "preconditions_not_stated": [
+        "An actor or fault that actually overwrites or deletes objects: no public write access or compromised writer is stated."
+      ],
+      "notes": "Weakness is a missing recoverability control, not an attack by itself. Reviewer should confirm that this belongs in the confirmed list."
+    },
+    {
+      "ref": "CIP-05",
+      "cause_id": "raw_bucket.no_access_logging",
+      "target": "raw_bucket",
+      "target_kind": "component",
+      "root_cause": "Access logging is disabled on the raw data bucket.",
+      "evidence": [
+        {"path": "components.raw_bucket.config.access_logging_enabled", "observed": false, "role": "primary"},
+        {"path": "components.raw_bucket.stores_sensitive_data", "observed": true, "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Access logging is stated to be off for a bucket with sensitive data, so access to it cannot be reconstructed.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The flag names the disabled control; the relevance of access logging is general knowledge."
+      },
+      "categories": [
+        {"category": "repudiation", "scenario": "Reads and writes of sensitive raw data cannot be attributed to an actor."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": ""
+    },
+    {
+      "ref": "CIP-06",
+      "cause_id": "processing_cluster.admin_role_account_wide",
+      "target": "processing_cluster",
+      "target_kind": "component",
+      "root_cause": "The processing cluster runs with an admin role scoped to the whole account instead of least-privilege access.",
+      "evidence": [
+        {"path": "components.processing_cluster.config.iam_role", "observed": "admin", "role": "primary"},
+        {"path": "components.processing_cluster.config.iam_role_scope", "observed": "account-wide", "role": "primary"}
+      ],
+      "evidence_type": "direct",
+      "justification": "An admin role with account-wide scope is stated, so anything running on the cluster holds privileges far beyond what processing needs.",
+      "difficulty": {
+        "level": "medium",
+        "rationale": "Two stated facts on one element are needed to see the excess: 'admin' alone could be narrowly scoped, 'account-wide' removes that bound."
+      },
+      "categories": [
+        {"category": "elevation_of_privilege", "scenario": "A compromised job or cluster node acts with account-wide admin rights."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": "Impact on other elements (for example the monitoring service) is not claimed here; see candidate chain CIP-X1."
+    },
+    {
+      "ref": "CIP-07",
+      "cause_id": "processing_cluster.imds_v1_allowed",
+      "target": "processing_cluster",
+      "target_kind": "component",
+      "root_cause": "The cluster does not require the hardened instance metadata service (IMDSv2), so the older, weaker version remains available.",
+      "evidence": [
+        {"path": "components.processing_cluster.config.instance_metadata_v2_required", "observed": false, "role": "primary"}
+      ],
+      "evidence_type": "direct",
+      "justification": "The hardened metadata service is stated not to be required. The older version exposes role credentials to anything that can make a request from the node.",
+      "difficulty": {
+        "level": "medium",
+        "rationale": "The flag names the disabled control, but its relevance (credential theft through the metadata service) is specialist knowledge."
+      },
+      "categories": [
+        {"category": "information_disclosure", "scenario": "Role credentials are read from the metadata service by code or a request-forgery bug running on the node."}
+      ],
+      "preconditions_not_stated": [
+        "A foothold that can reach the metadata service, for example request forgery or code execution on the node, is not stated."
+      ],
+      "notes": "The combination with CIP-06 (stolen credentials carry an admin role) is a chain, see candidate CIP-X2."
+    },
+    {
+      "ref": "CIP-08",
+      "cause_id": "warehouse.no_encryption_at_rest",
+      "target": "warehouse",
+      "target_kind": "component",
+      "root_cause": "The data warehouse is not encrypted at rest.",
+      "evidence": [
+        {"path": "components.warehouse.config.encryption_at_rest", "observed": false, "role": "primary"},
+        {"path": "components.warehouse.stores_sensitive_data", "observed": true, "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Encryption at rest is stated to be off for a store of sensitive processed data.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The flag names the disabled control; the relevance of encryption at rest is general knowledge."
+      },
+      "categories": [
+        {"category": "information_disclosure", "scenario": "Warehouse data can be read from storage media, snapshots or copies without any key barrier."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": ""
+    },
+    {
+      "ref": "CIP-09",
+      "cause_id": "warehouse.no_audit_logging",
+      "target": "warehouse",
+      "target_kind": "component",
+      "root_cause": "Audit logging is disabled on the data warehouse.",
+      "evidence": [
+        {"path": "components.warehouse.config.audit_logging_enabled", "observed": false, "role": "primary"},
+        {"path": "components.warehouse.stores_sensitive_data", "observed": true, "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Audit logging is stated to be off for a store of sensitive data, so queries and changes cannot be reconstructed.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The flag names the disabled control; the relevance of audit logging is general knowledge."
+      },
+      "categories": [
+        {"category": "repudiation", "scenario": "Queries against, and changes to, sensitive warehouse data cannot be attributed to an actor."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": ""
+    },
+    {
+      "ref": "CIP-10",
+      "cause_id": "monitoring.no_log_retention",
+      "target": "monitoring",
+      "target_kind": "component",
+      "root_cause": "The monitoring service retains logs for zero days.",
+      "evidence": [
+        {"path": "components.monitoring.config.log_retention_days", "observed": 0, "role": "primary"}
+      ],
+      "evidence_type": "direct",
+      "justification": "A retention period of zero days means logs do not persist, so events cannot be reconstructed afterwards.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The value states directly that logs are not retained; the relevance of log retention is general knowledge."
+      },
+      "categories": [
+        {"category": "repudiation", "scenario": "Actions across the pipeline cannot be reconstructed or attributed after the fact."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": "STRIDE has no category for detection gaps; repudiation is used by convention for logging and monitoring gaps."
+    },
+    {
+      "ref": "CIP-11",
+      "cause_id": "monitoring.alerting_disabled",
+      "target": "monitoring",
+      "target_kind": "component",
+      "root_cause": "Alerting is disabled on the monitoring service.",
+      "evidence": [
+        {"path": "components.monitoring.config.alerting_enabled", "observed": false, "role": "primary"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Alerting is stated to be off, so security-relevant events raise no alarm.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The flag names the disabled control; the relevance of alerting is general knowledge."
+      },
+      "categories": [
+        {"category": "repudiation", "scenario": "Misuse goes unnoticed and is not attributed in time."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": "A different control than CIP-10 (alerting versus retention) on the same target and category. Kept separate; a prediction may mention both."
+    }
+  ],
+  "boundary_cases": [
+    {
+      "ref": "CIP-B1",
+      "targets": ["ingest_api"],
+      "category": "spoofing",
+      "based_on": [{"path": "components.ingest_api.internet_exposed", "observed": true}],
+      "policy": "P1",
+      "note": "Exposure-only scenario. The producer_to_ingest flow is stated as authenticated, so the remaining risk is credential compromise, which is not described."
+    }
+  ],
+  "unsupported": [
+    {"ref": "CIP-U1", "targets": ["ingest_api"], "category": "tampering", "claimed_cause": "Malformed or injected records are accepted", "reason": "no_evidence", "note": "Nothing is stated about input validation."},
+    {
+      "ref": "CIP-U2", "targets": ["ingest_api"], "category": "repudiation", "claimed_cause": "No request logging at the API", "reason": "contradicted_by_config",
+      "contradicting_evidence": [{"path": "components.ingest_api.config.request_logging_enabled", "observed": true}],
+      "note": "Request logging is stated to be on."
+    },
+    {"ref": "CIP-U3", "targets": ["raw_bucket"], "category": "tampering", "claimed_cause": "Bucket is publicly writable", "reason": "no_evidence", "note": "public_access: true does not state write access. A tampering claim based on public write access is not supported; CIP-04 covers the recoverability gap instead."},
+    {
+      "ref": "CIP-U4", "targets": ["warehouse"], "category": "information_disclosure", "claimed_cause": "Warehouse is publicly reachable", "reason": "contradicted_by_config",
+      "contradicting_evidence": [{"path": "components.warehouse.config.publicly_accessible", "observed": false}],
+      "note": "Public accessibility is stated to be off."
+    },
+    {
+      "ref": "CIP-U5", "targets": ["producer_to_ingest", "ingest_to_raw_bucket", "raw_bucket_to_processing", "processing_to_warehouse", "processing_to_monitoring"], "category": "information_disclosure", "claimed_cause": "Traffic can be read or altered in transit, or the peer is not authenticated", "reason": "contradicted_by_config",
+      "contradicting_evidence": [
+        {"path": "data_flows.producer_to_ingest.encrypted", "observed": true},
+        {"path": "data_flows.processing_to_warehouse.authenticated", "observed": true}
+      ],
+      "note": "Every flow is stated as encrypted and authenticated. Applies to spoofing, tampering and information disclosure on these flows."
+    },
+    {"ref": "CIP-U6", "targets": ["processing_cluster"], "category": "tampering", "claimed_cause": "Job code or pipeline integrity can be altered", "reason": "no_evidence", "note": "Nothing is stated about code or job integrity."},
+    {"ref": "CIP-U7", "targets": ["warehouse"], "category": "tampering", "claimed_cause": "Unauthorized modification of warehouse data", "reason": "no_evidence", "note": "Nothing is stated about warehouse access control."},
+    {"ref": "CIP-U8", "targets": ["producer"], "category": "spoofing", "claimed_cause": "Any threat against the external producer", "reason": "out_of_scope", "note": "External entity outside the system boundary. Threats against it are not modeled; threats against the system through it are."}
+  ],
+  "candidate_chain_causes": [
+    {
+      "ref": "CIP-X1",
+      "cause_id": "monitoring.logs_alterable_by_over_privileged_cluster",
+      "target": "monitoring",
+      "target_kind": "component",
+      "category": "tampering",
+      "root_cause": "The processing cluster holds an account-wide admin role and sends its logs to the monitoring service, so a compromised cluster could alter or delete the logs that would reveal it.",
+      "involves": ["CIP-06", "CIP-10"],
+      "evidence": [
+        {"path": "components.processing_cluster.config.iam_role", "observed": "admin", "role": "primary"},
+        {"path": "components.processing_cluster.config.iam_role_scope", "observed": "account-wide", "role": "primary"},
+        {"path": "data_flows.processing_to_monitoring.source", "observed": "processing_cluster", "role": "supporting"},
+        {"path": "data_flows.processing_to_monitoring.target", "observed": "monitoring", "role": "supporting"},
+        {"path": "components.monitoring.technology", "observed": "AWS CloudWatch", "role": "supporting"}
+      ],
+      "evidence_type": "derived",
+      "difficulty": {"level": "hard", "rationale": "The role scope (cluster), the flow, and the monitoring technology have to be combined; the ability to alter logs is not stated at any single element."},
+      "overlap_note": "Impact path of CIP-06 onto another element. Excluded by default to avoid a second cause for the same control gap."
+    },
+    {
+      "ref": "CIP-X2",
+      "cause_id": "processing_cluster.credential_theft_yields_account_admin",
+      "target": "processing_cluster",
+      "target_kind": "component",
+      "category": "elevation_of_privilege",
+      "root_cause": "The weaker metadata service allows credential theft from the node, and the stolen credentials carry an account-wide admin role.",
+      "involves": ["CIP-06", "CIP-07"],
+      "evidence": [
+        {"path": "components.processing_cluster.config.instance_metadata_v2_required", "observed": false, "role": "primary"},
+        {"path": "components.processing_cluster.config.iam_role", "observed": "admin", "role": "primary"},
+        {"path": "components.processing_cluster.config.iam_role_scope", "observed": "account-wide", "role": "primary"}
+      ],
+      "evidence_type": "derived",
+      "difficulty": {"level": "medium", "rationale": "Three stated facts on one element are chained; no cross-element inference is needed."},
+      "overlap_note": "Chain of CIP-06 and CIP-07. Excluded by default."
+    }
+  ]
+}

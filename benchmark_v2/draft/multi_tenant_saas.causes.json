@@ -1,0 +1,245 @@
+{
+  "schema": "v2-cause-list-draft",
+  "status": "DRAFT",
+  "gt_version": "V2.0-draft",
+  "architecture_id": "multi_tenant_saas",
+  "provenance": {
+    "derived_from": {
+      "file": "benchmark/multi_tenant_saas.json",
+      "sha256_16": "74f16ea7b8812904"
+    },
+    "not_used": [
+      "V1 ground truth",
+      "any V1 or later results, traces, or predictions",
+      "output of the deterministic baseline"
+    ],
+    "disclosure": "The drafting assistant also wrote this architecture file and the V1 ground truth earlier in the same working session and had seen V1 results. For this draft it opened only the architecture file named above. Prior exposure cannot be excluded, so independence of the content rests on the owner's review (gate G2). Because the same assistant designed the architecture, evidence-based reading mostly reproduces design intent."
+  },
+  "difficulty_operationalization": "Applies V2_SPEC.md section 5. easy: a stated value names a missing or disabled control whose security relevance is general knowledge. medium: the value names a mechanism or specialist control whose weakness must be known, or at least two stated facts have to be combined. hard: stated facts from at least two different elements or relationships must be combined and the weakness is not stated at any single one. Applied blind to model results and to deterministic-baseline output.",
+  "causes": [
+    {
+      "ref": "MTS-01",
+      "cause_id": "api.tenant_id_from_client_input",
+      "target": "api",
+      "target_kind": "component",
+      "root_cause": "The API takes the tenant identity from a client-supplied request parameter instead of deriving it from the authenticated identity.",
+      "evidence": [
+        {"path": "components.api.config.tenant_id_source", "observed": "request_parameter", "role": "primary"}
+      ],
+      "evidence_type": "direct",
+      "justification": "The configuration states where the tenant context comes from. A value the caller controls can name another tenant, so the tenant boundary depends on the caller's honesty.",
+      "difficulty": {
+        "level": "medium",
+        "rationale": "The value names a mechanism, not a missing control. Recognising it as unsafe requires knowing how tenant context must be bound to identity."
+      },
+      "categories": [
+        {"category": "elevation_of_privilege", "scenario": "An authenticated user submits another tenant's id and acts in that tenant's context."},
+        {"category": "information_disclosure", "scenario": "The same manipulation returns another tenant's data."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": "Related to MTS-02 but a different control: binding tenant to identity versus checking authorization."
+    },
+    {
+      "ref": "MTS-02",
+      "cause_id": "api.authorization_limited_to_authentication",
+      "target": "api",
+      "target_kind": "component",
+      "root_cause": "The API authenticates callers but performs no authorization beyond that, so any authenticated caller is treated as permitted.",
+      "evidence": [
+        {"path": "components.api.config.authorization_checks", "observed": "authentication_only", "role": "primary"},
+        {"path": "components.api.config.authentication", "observed": "oauth2", "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Authentication is stated to exist, and authorization is stated to be limited to it. Authentication establishes who the caller is, not what the caller may do.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The value states in plain words that only authentication is checked; the relevance of authorization is general knowledge."
+      },
+      "categories": [
+        {"category": "elevation_of_privilege", "scenario": "A caller performs operations or reaches objects beyond its role because no check exists after login."},
+        {"category": "information_disclosure", "scenario": "An authenticated caller reads objects it is not entitled to."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": ""
+    },
+    {
+      "ref": "MTS-03",
+      "cause_id": "document_service.no_object_ownership_check",
+      "target": "document_service",
+      "target_kind": "component",
+      "root_cause": "The document service does not verify that a requested object belongs to the requesting caller or tenant.",
+      "evidence": [
+        {"path": "components.document_service.config.object_ownership_check", "observed": false, "role": "primary"}
+      ],
+      "evidence_type": "direct",
+      "justification": "The ownership check is stated to be disabled. Object identifiers alone then select which object is served.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The flag names the disabled control, and its relevance (object-level access control) is general knowledge."
+      },
+      "categories": [
+        {"category": "information_disclosure", "scenario": "A caller reads another party's documents by supplying their object identifiers."},
+        {"category": "tampering", "scenario": "A caller modifies or deletes another party's documents."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": ""
+    },
+    {
+      "ref": "MTS-04",
+      "cause_id": "shared_db.no_tenant_isolation",
+      "target": "shared_db",
+      "target_kind": "component",
+      "root_cause": "Tenants share one schema and the database enforces neither row-level security nor any other tenant isolation.",
+      "evidence": [
+        {"path": "components.shared_db.config.tenant_isolation", "observed": false, "role": "primary"},
+        {"path": "components.shared_db.config.row_level_security", "observed": false, "role": "supporting"},
+        {"path": "components.shared_db.config.multi_tenancy", "observed": "shared_schema", "role": "supporting"},
+        {"path": "components.shared_db.stores_sensitive_data", "observed": true, "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Isolation is stated to be absent in a shared schema holding sensitive data. Any query or write without a correct tenant filter then reaches other tenants' rows.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "tenant_isolation: false names the missing control; the other flags describe the same gap."
+      },
+      "categories": [
+        {"category": "information_disclosure", "scenario": "A query without a correct tenant filter returns other tenants' rows."},
+        {"category": "tampering", "scenario": "A write without a correct tenant filter changes other tenants' rows."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": "Two flags (row_level_security, tenant_isolation) describe one control gap and are merged into one cause. Reviewer may prefer two causes."
+    },
+    {
+      "ref": "MTS-05",
+      "cause_id": "object_store.no_per_tenant_partitioning",
+      "target": "object_store",
+      "target_kind": "component",
+      "root_cause": "Stored files are not partitioned per tenant; nothing enforces a per-tenant prefix or equivalent separation.",
+      "evidence": [
+        {"path": "components.object_store.config.per_tenant_prefix_enforced", "observed": false, "role": "primary"},
+        {"path": "components.object_store.stores_sensitive_data", "observed": true, "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "Per-tenant separation is stated to be unenforced for sensitive tenant files, so reaching the storage with another tenant's path is enough to reach their files.",
+      "difficulty": {
+        "level": "easy",
+        "rationale": "The flag names the disabled control; the relevance of tenant separation in shared storage is general knowledge."
+      },
+      "categories": [
+        {"category": "information_disclosure", "scenario": "A request that reaches the storage with another tenant's path reads their files."},
+        {"category": "tampering", "scenario": "A request with another tenant's path overwrites or deletes their files."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": "encryption_at_rest is true and public_access is false. Neither separates one tenant's callers from another tenant's objects, so they do not mitigate this cause."
+    },
+    {
+      "ref": "MTS-06",
+      "cause_id": "admin_portal.single_global_admin_role",
+      "target": "admin_portal",
+      "target_kind": "component",
+      "root_cause": "Administration uses one global admin role with no separation between platform administration and per-tenant administration.",
+      "evidence": [
+        {"path": "components.admin_portal.config.role_separation", "observed": "single_global_admin_role", "role": "primary"},
+        {"path": "components.admin_portal.internet_exposed", "observed": true, "role": "supporting"}
+      ],
+      "evidence_type": "direct",
+      "justification": "A single global role is stated for an internet-exposed admin interface of a multi-tenant system. One compromised or misused credential then spans every tenant.",
+      "difficulty": {
+        "level": "medium",
+        "rationale": "The value names a role model. Its consequence (one credential spans all tenants) has to be inferred from 'global' in a multi-tenant system."
+      },
+      "categories": [
+        {"category": "elevation_of_privilege", "scenario": "Compromise or misuse of the single admin role gives control over every tenant."}
+      ],
+      "preconditions_not_stated": [],
+      "notes": ""
+    }
+  ],
+  "boundary_cases": [
+    {
+      "ref": "MTS-B1",
+      "targets": ["api"],
+      "category": "spoofing",
+      "based_on": [{"path": "components.api.internet_exposed", "observed": true}],
+      "policy": "P1",
+      "note": "Exposure-only scenario. OAuth2 authentication is stated, so the remaining risk is credential or token compromise, which is not described."
+    },
+    {
+      "ref": "MTS-B2",
+      "targets": ["api"],
+      "category": "denial_of_service",
+      "based_on": [{"path": "components.api.internet_exposed", "observed": true}],
+      "policy": "P1",
+      "note": "Exposure-only scenario. Nothing is stated about throttling or capacity."
+    },
+    {
+      "ref": "MTS-B3",
+      "targets": ["admin_portal"],
+      "category": "spoofing",
+      "based_on": [{"path": "components.admin_portal.internet_exposed", "observed": true}],
+      "policy": "P1",
+      "note": "Exposure-only scenario for a privileged interface. The admin_to_api flow is authenticated; nothing is stated about how the portal authenticates its users."
+    }
+  ],
+  "unsupported": [
+    {"ref": "MTS-U1", "targets": ["shared_db"], "category": "repudiation", "claimed_cause": "No audit logging for database changes", "reason": "no_evidence", "note": "Nothing is stated about audit logging for the database."},
+    {"ref": "MTS-U2", "targets": ["shared_db"], "category": "information_disclosure", "claimed_cause": "Database not encrypted at rest", "reason": "no_evidence", "note": "shared_db config does not mention encryption at rest (object_store does). Silence is not evidence."},
+    {"ref": "MTS-U3", "targets": ["api"], "category": "tampering", "claimed_cause": "Missing input validation or injection", "reason": "no_evidence", "note": "Nothing is stated about input handling."},
+    {"ref": "MTS-U4", "targets": ["api"], "category": "repudiation", "claimed_cause": "No request or audit logging in the API", "reason": "no_evidence", "note": "Nothing is stated about logging for the API."},
+    {"ref": "MTS-U5", "targets": ["admin_portal"], "category": "tampering", "claimed_cause": "Cross-site scripting or request forgery in the portal", "reason": "no_evidence", "note": "Nothing is stated about web-application hardening."},
+    {"ref": "MTS-U6", "targets": ["document_service"], "category": "denial_of_service", "claimed_cause": "Service can be overloaded", "reason": "no_evidence", "note": "Nothing is stated about capacity or limits."},
+    {
+      "ref": "MTS-U7", "targets": ["object_store"], "category": "information_disclosure", "claimed_cause": "Storage is publicly accessible", "reason": "contradicted_by_config",
+      "contradicting_evidence": [{"path": "components.object_store.config.public_access", "observed": false}],
+      "note": "Public access is stated to be off."
+    },
+    {
+      "ref": "MTS-U8", "targets": ["user_to_api", "admin_to_api", "api_to_document_service", "api_to_db", "document_service_to_store"], "category": "information_disclosure", "claimed_cause": "Traffic can be read or altered in transit, or the peer is not authenticated", "reason": "contradicted_by_config",
+      "contradicting_evidence": [
+        {"path": "data_flows.user_to_api.encrypted", "observed": true},
+        {"path": "data_flows.api_to_db.authenticated", "observed": true}
+      ],
+      "note": "Every flow is stated as encrypted and authenticated. Applies to spoofing, tampering and information disclosure on these flows."
+    },
+    {"ref": "MTS-U9", "targets": ["tenant_user"], "category": "spoofing", "claimed_cause": "Any threat against the user or the user's browser", "reason": "out_of_scope", "note": "External entity outside the system boundary. Threats against it are not modeled; threats against the system through it are."}
+  ],
+  "candidate_chain_causes": [
+    {
+      "ref": "MTS-X1",
+      "cause_id": "document_service.no_layer_enforces_tenant_isolation_on_file_path",
+      "target": "document_service",
+      "target_kind": "component",
+      "category": "information_disclosure",
+      "root_cause": "No layer on the file path enforces tenant isolation: the API accepts a client-supplied tenant, the document service skips the ownership check, and the storage has no per-tenant partitioning.",
+      "involves": ["MTS-01", "MTS-03", "MTS-05"],
+      "evidence": [
+        {"path": "components.api.config.tenant_id_source", "observed": "request_parameter", "role": "primary"},
+        {"path": "components.document_service.config.object_ownership_check", "observed": false, "role": "primary"},
+        {"path": "components.object_store.config.per_tenant_prefix_enforced", "observed": false, "role": "primary"},
+        {"path": "data_flows.api_to_document_service.target", "observed": "document_service", "role": "supporting"},
+        {"path": "data_flows.document_service_to_store.target", "observed": "object_store", "role": "supporting"}
+      ],
+      "evidence_type": "derived",
+      "difficulty": {"level": "hard", "rationale": "Facts from three elements and two flows have to be combined into one end-to-end path; the conclusion is not stated at any single element."},
+      "overlap_note": "Restates MTS-01, MTS-03 and MTS-05 as a chain. Excluded by default because a prediction describing it would be hard to map to exactly one cause."
+    },
+    {
+      "ref": "MTS-X2",
+      "cause_id": "api.tenant_user_can_reach_admin_functions",
+      "target": "api",
+      "target_kind": "component",
+      "category": "elevation_of_privilege",
+      "root_cause": "Tenant users and the admin portal call the same API, which checks only authentication, so a tenant user may reach administrative functions.",
+      "involves": ["MTS-02", "MTS-06"],
+      "evidence": [
+        {"path": "data_flows.user_to_api.target", "observed": "api", "role": "primary"},
+        {"path": "data_flows.admin_to_api.target", "observed": "api", "role": "primary"},
+        {"path": "components.api.config.authorization_checks", "observed": "authentication_only", "role": "primary"},
+        {"path": "components.admin_portal.config.role_separation", "observed": "single_global_admin_role", "role": "supporting"}
+      ],
+      "evidence_type": "derived",
+      "difficulty": {"level": "hard", "rationale": "Two flows, the API's authorization setting and the admin role model have to be combined; the vertical escalation path is not stated at any single element."},
+      "overlap_note": "Overlaps MTS-02 (vertical case) and MTS-06. Excluded by default."
+    }
+  ]
+}
