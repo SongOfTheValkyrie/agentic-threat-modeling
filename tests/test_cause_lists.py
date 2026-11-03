@@ -1,4 +1,4 @@
-"""Checks for the V2 draft cause lists (V2_SPEC.md sections 3 to 5).
+"""Checks for the frozen V2 cause lists (V2_SPEC.md sections 3 to 5).
 
 These tests do not judge whether a cause is *right*; that is the owner's review
 (gate G2). They check what a machine can: that every piece of cited evidence
@@ -17,13 +17,14 @@ import pytest
 from src.models.threat import StrideCategory
 
 ROOT = Path(__file__).resolve().parents[1]
-DRAFTS = sorted((ROOT / "benchmark_v2" / "draft").glob("*.causes.json"))
+DRAFTS = sorted((ROOT / "benchmark_v2" / "v2.0").glob("*.causes.json"))
 
 STRIDE = {c.value for c in StrideCategory}
 EVIDENCE_TYPES = {"direct", "derived", "scenario"}
 LEVELS = {"easy", "medium", "hard"}
 ROLES = {"primary", "supporting"}
 UNSUPPORTED_REASONS = {"no_evidence", "contradicted_by_config", "out_of_scope"}
+RISK_CLASSES = {"stride_threat", "recoverability", "detection_gap"}
 
 
 def _load(path: Path) -> tuple[dict, dict]:
@@ -88,7 +89,8 @@ def test_draft_is_bound_to_the_architecture_checksum(loaded):
     assert draft["provenance"]["derived_from"]["sha256_16"] == actual, (
         "architecture file changed since the draft was written"
     )
-    assert draft["status"] == "DRAFT"
+    assert draft["status"] == "FROZEN" and draft["gt_version"] == "V2.0"
+    assert draft["frozen"]["date"] and draft["frozen"]["approved_by"]
     assert "V1 ground truth" in draft["provenance"]["not_used"]
     assert draft["provenance"]["disclosure"]
 
@@ -137,9 +139,20 @@ def test_cause_structure(loaded):
         assert cause["difficulty"]["rationale"].strip(), label
 
         categories = [c["category"] for c in cause["categories"]]
-        assert categories and len(set(categories)) == len(categories), label
-        assert set(categories) <= STRIDE, label
+        assert len(set(categories)) == len(categories), label
+        assert set(categories) <= STRIDE and len(categories) <= 2, label
         assert all(c["scenario"].strip() for c in cause["categories"]), label
+
+        # Risk class and STRIDE scoring must agree: only stride_threat causes carry categories.
+        assert cause["risk_class"] in RISK_CLASSES, label
+        assert isinstance(cause["stride_scored"], bool), label
+        assert cause["stride_scored"] == (cause["risk_class"] == "stride_threat"), label
+        assert bool(categories) == cause["stride_scored"], (
+            f"{label}: categories and stride_scored disagree"
+        )
+
+        # Every cause separates what the architecture establishes from what is hypothetical.
+        assert cause["established"].strip() and cause["hypothetical"].strip(), label
 
         roles = [e["role"] for e in cause["evidence"]]
         assert set(roles) <= ROLES and "primary" in roles, label
@@ -158,6 +171,20 @@ def test_difficulty_labels_follow_the_stated_operationalization(loaded):
             assert cause["evidence_type"] == "direct", cause["ref"]
         if level == "hard":
             assert len(elements) >= 2, f"{cause['ref']}: hard but evidence is on {elements}"
+
+
+def test_limitations_are_documented_and_match_the_difficulty_distribution(loaded):
+    """An empty hard class must be stated as a limitation, not left implicit."""
+    draft, _ = loaded
+    assert draft["limitations"] and all(item.strip() for item in draft["limitations"])
+    levels = {c["difficulty"]["level"] for c in draft["causes"]}
+    if "hard" not in levels:
+        assert any("hard" in item and "chains" in item for item in draft["limitations"])
+    non_stride = [c["ref"] for c in draft["causes"] if not c["stride_scored"]]
+    for ref in non_stride:
+        assert any(ref in item for item in draft["limitations"]), (
+            f"{ref} is not STRIDE-scored but no limitation says so"
+        )
 
 
 # --- boundary, unsupported, candidates ---------------------------------------

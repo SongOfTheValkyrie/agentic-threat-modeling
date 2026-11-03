@@ -1,0 +1,24 @@
+{
+  "gt_version": "V2.0",
+  "frozen_on": "2026-11-03",
+  "algorithm": "sha256 over the file bytes",
+  "note": "A frozen list is never edited in place. A change is a new version (V2.1).",
+  "cause_lists": {
+    "cloud_ingest_pipeline.causes.json": {
+      "sha256": "df624b4c702c9b6240a92bfe2efdb5c3aee8beb9beac2f351bdec3c06d659a02",
+      "architecture_file": "benchmark/cloud_ingest_pipeline.json",
+      "architecture_sha256": "541b30977a0b1cde6b3967f3523a157d7804216cb08307f84c496dc58242cc40",
+      "causes": 11,
+      "threat_cause_recall_denominator": 9,
+      "security_control_gap_recall_denominator": 11
+    },
+    "multi_tenant_saas.causes.json": {
+      "sha256": "7420d29af690d842f0789818e4e019bd643c626331d7c28358445702b05b95b8",
+      "architecture_file": "benchmark/multi_tenant_saas.json",
+      "architecture_sha256": "74f16ea7b8812904dcab1dc3a0e04aac6e8789739b9240e0b0d7005e16f25c0b",
+      "causes": 6,
+      "threat_cause_recall_denominator": 6,
+      "security_control_gap_recall_denominator": 6
+    }
+  }
+}

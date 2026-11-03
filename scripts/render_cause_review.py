@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Render the draft cause lists into a single review sheet (Markdown).
+"""Render the V2 cause lists into a single review sheet (Markdown).
 
 The sheet is generated, never hand-edited: the JSON files under
-``benchmark_v2/draft/`` are the source of truth, and a test keeps the committed
+``benchmark_v2/v2.0/`` are the source of truth, and a test keeps the committed
 sheet in sync with them.
 
 Usage (from the repository root)::
 
-    python scripts/render_cause_review.py            # write benchmark_v2/draft/REVIEW.md
+    python scripts/render_cause_review.py            # write benchmark_v2/v2.0/REVIEW.md
     python scripts/render_cause_review.py --check    # exit 1 if the sheet is stale
 """
 
@@ -17,8 +17,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DRAFT_DIR = ROOT / "benchmark_v2" / "draft"
-OUTPUT = DRAFT_DIR / "REVIEW.md"
+LISTS_DIR = ROOT / "benchmark_v2" / "v2.0"
+OUTPUT = LISTS_DIR / "REVIEW.md"
 # Fixed order so the sheet is stable regardless of directory listing order.
 ORDER = ["multi_tenant_saas", "cloud_ingest_pipeline"]
 
@@ -42,7 +42,7 @@ def evidence_lines(evidence: list[dict]) -> list[str]:
 
 def load_drafts() -> list[dict]:
     drafts = {}
-    for path in sorted(DRAFT_DIR.glob("*.causes.json")):
+    for path in sorted(LISTS_DIR.glob("*.causes.json")):
         draft = json.loads(path.read_text())
         drafts[draft["architecture_id"]] = draft
     unknown = set(drafts) - set(ORDER)
@@ -53,18 +53,22 @@ def load_drafts() -> list[dict]:
 
 def summary_rows(drafts: list[dict]) -> list[str]:
     rows = [
-        "| Architecture | Causes | (target, STRIDE) entries | Distinct keys | direct | derived "
-        "| scenario | easy | medium | hard | Boundary | Unsupported | Candidate chains |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Architecture | Causes | Threat Cause Recall denominator "
+        "| Security Control Gap Recall denominator | (target, STRIDE) entries | Distinct keys "
+        "| direct | derived | scenario | easy | medium | hard | Boundary | Unsupported "
+        "| Candidate chains |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
-    totals = [0] * 12
+    totals = [0] * 14
     for d in drafts:
         causes = d["causes"]
         entries = [(c["target"], k["category"]) for c in causes for k in c["categories"]]
         types = [c["evidence_type"] for c in causes]
         levels = [c["difficulty"]["level"] for c in causes]
         values = [
-            len(causes), len(entries), len(set(entries)),
+            len(causes), len(d["recall_sets"]["threat_cause_recall"]),
+            len(d["recall_sets"]["security_control_gap_recall"]),
+            len(entries), len(set(entries)),
             types.count("direct"), types.count("derived"), types.count("scenario"),
             levels.count("easy"), levels.count("medium"), levels.count("hard"),
             len(d["boundary_cases"]), len(d["unsupported"]), len(d["candidate_chain_causes"]),
@@ -81,9 +85,13 @@ def overview_table(draft: dict) -> list[str]:
         "|---|---|---|---|---|---|",
     ]
     for c in draft["causes"]:
-        for k in c["categories"]:
+        # A cause without STRIDE mapping still gets one row, labelled with its risk class.
+        categories = [k["category"] for k in c["categories"]] or [
+            f"none ({c['risk_class']}, not STRIDE-scored)"
+        ]
+        for category in categories:
             rows.append(
-                f"| {c['ref']} | `{c['cause_id']}` | {c['target']} | {k['category']} "
+                f"| {c['ref']} | `{c['cause_id']}` | {c['target']} | {category} "
                 f"| {c['evidence_type']} | {c['difficulty']['level']} |"
             )
     return rows
@@ -95,14 +103,27 @@ def cause_block(c: dict) -> list[str]:
         "",
         f"- **Target:** {c['target']} ({c['target_kind']})",
         f"- **Root cause:** {c['root_cause']}",
+        f"- **Risk class:** {c['risk_class']}"
+        + (
+            ""
+            if c["stride_scored"]
+            else " (security control gap: Security Control Gap Recall only, no STRIDE mapping)"
+        ),
         "- **Evidence:**",
         *[f"  - {line}" for line in evidence_lines(c["evidence"])],
         f"- **Evidence type:** {c['evidence_type']}",
+        f"- **Established by the architecture:** {c['established']}",
+        f"- **Hypothetical (not established):** {c['hypothetical']}",
         f"- **Justification:** {c['justification']}",
         f"- **Difficulty:** {c['difficulty']['level']}. {c['difficulty']['rationale']}",
         "- **STRIDE scenarios:**",
-        *[f"  - `{k['category']}`: {k['scenario']}" for k in c["categories"]],
+        *(
+            [f"  - `{k['category']}`: {k['scenario']}" for k in c["categories"]]
+            or ["  - none (no STRIDE mapping proposed)"]
+        ),
     ]
+    if c.get("stride_mapping_note"):
+        lines.append(f"- **STRIDE mapping note:** {c['stride_mapping_note']}")
     if c.get("preconditions_not_stated"):
         lines.append("- **Preconditions not stated in the architecture:**")
         lines += [f"  - {p}" for p in c["preconditions_not_stated"]]
@@ -157,20 +178,36 @@ def candidate_block(x: dict) -> list[str]:
     ]
 
 
+def status_label(drafts: list[dict]) -> str:
+    return "/".join(sorted({f"{d['status']} {d['gt_version']}" for d in drafts}))
+
+
+def status_line(drafts: list[dict]) -> str:
+    states = {d["status"] for d in drafts}
+    if states == {"FROZEN"}:
+        dates = sorted({d["frozen"]["date"] for d in drafts})
+        return (
+            f"**Status:** FROZEN as GT {drafts[0]['gt_version']} on {', '.join(dates)} "
+            "(gate G2 passed). Checksums are in `MANIFEST.json`. Changes are made as a new "
+            "version, never in place."
+        )
+    return "**Status:** not frozen."
+
+
 def render() -> str:
     drafts = load_drafts()
     operationalizations = {d["difficulty_operationalization"] for d in drafts}
     out = [
-        "# V2 cause lists: review sheet (DRAFT)",
+        f"# V2 cause lists: review sheet ({status_label(drafts)})",
         "",
-        "*Generated by `scripts/render_cause_review.py` from `benchmark_v2/draft/*.causes.json`. "
+        "*Generated by `scripts/render_cause_review.py` from `benchmark_v2/v2.0/*.causes.json`. "
         "Do not edit this file; edit the JSON and regenerate.*",
         "",
-        "**Status:** DRAFT, awaiting owner review (gate G2). Nothing here is frozen.",
+        status_line(drafts),
         "",
         "## How to read this",
         "",
-        "- **Confirmed causes** are the candidate ground truth. Each is backed by cited "
+        "- **Confirmed causes** are the ground truth of this version. Each is backed by cited "
         "evidence that a test checks against the architecture file.",
         "- **Boundary cases** are exposure-only scenarios (policy P1). They are not required "
         "for recall; if a model predicts one it goes to `pending_review`.",
@@ -180,6 +217,16 @@ def render() -> str:
         "are excluded by default and listed so you can decide.",
         "- The (target, STRIDE) pairs are the secondary coarse metric; the cause is the "
         "scoring unit.",
+        "- **Two cause recalls, one scoring unit.** *Threat Cause Recall* is taken over the "
+        "`stride_threat` causes. *Security Control Gap Recall* is taken over all causes, including "
+        "the documented control gaps (`recoverability`, `detection_gap`), which carry no STRIDE "
+        "category and stay out of the (target, STRIDE) metric. Both are computed from the same "
+        "labels.",
+        "- **Categories are not required.** A correctly identified root cause counts once, "
+        "whatever STRIDE impacts a prediction names. STRIDE classification quality is evaluated "
+        "separately.",
+        "- For every cause, *established* is what the architecture states, and *hypothetical* "
+        "is what is only a scenario on top of it.",
         "",
         "## Difficulty operationalization used",
         "",
@@ -192,6 +239,15 @@ def render() -> str:
         "## Summary",
         "",
         *summary_rows(drafts),
+        "",
+        "## Limitations of this cause evaluation",
+        "",
+        *[f"- **{d['architecture_id']}:** {item}" for d in drafts for item in d["limitations"]],
+        "",
+        "## Rules stored with the lists",
+        "",
+        *[f"- **{d['architecture_id']}, categories:** {d['category_semantics']}" for d in drafts],
+        *[f"- **{d['architecture_id']}, chains:** {d['chain_policy']}" for d in drafts],
         "",
     ]
     for d in drafts:

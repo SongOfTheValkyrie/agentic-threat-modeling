@@ -1,7 +1,13 @@
 {
-  "schema": "v2-cause-list-draft",
-  "status": "DRAFT",
-  "gt_version": "V2.0-draft",
+  "schema": "v2-cause-list",
+  "status": "FROZEN",
+  "gt_version": "V2.0",
+  "frozen": {
+    "date": "2026-11-03",
+    "approved_by": "owner (gate G2)",
+    "decisions": "V2_SPEC.md D17 to D23 and benchmark_v2/v2.0/G2_DECISIONS.md",
+    "checksums": "benchmark_v2/v2.0/MANIFEST.json"
+  },
   "architecture_id": "cloud_ingest_pipeline",
   "provenance": {
     "derived_from": {
@@ -13,21 +19,36 @@
       "any V1 or later results, traces, or predictions",
       "output of the deterministic baseline"
     ],
-    "disclosure": "The drafting assistant also wrote this architecture file and the V1 ground truth earlier in the same working session and had seen V1 results. For this draft it opened only the architecture file named above. Prior exposure cannot be excluded, so independence of the content rests on the owner's review (gate G2). Because the same assistant designed the architecture, evidence-based reading mostly reproduces design intent."
+    "disclosure": "The drafting assistant also wrote this architecture file and the V1 ground truth earlier in the same working session and had seen V1 results. For the first draft of this list it opened only the architecture file named above; later edits followed the owner's review decisions. Prior exposure cannot be excluded, so independence of the content rests on the owner's review (gate G2). Because the same assistant designed the architecture, evidence-based reading mostly reproduces design intent."
   },
   "difficulty_operationalization": "Applies V2_SPEC.md section 5. easy: a stated value names a missing or disabled control whose security relevance is general knowledge. medium: the value names a mechanism or specialist control whose weakness must be known, or at least two stated facts have to be combined. hard: stated facts from at least two different elements or relationships must be combined and the weakness is not stated at any single one. Applied blind to model results and to deterministic-baseline output.",
-  "causes": [
+  "limitations": [
+    "No confirmed cause is hard, and every confirmed cause is direct: each weakness is stated as a setting on one element. Complex attack chains across several elements are therefore covered only to a limited extent by this cause evaluation.",
+    "The cross-element chains that could be read from this architecture (CIP-X1, CIP-X2) are preserved as candidates for a separate later analysis and are excluded from the confirmed list and from both recall metrics. Results on this architecture say little about whether a model can find cross-element chains.",
+    "Two confirmed causes are documented security control gaps without a STRIDE mapping: CIP-04 (recoverability) and CIP-11 (detection gap). They count in Security Control Gap Recall (all 11 causes of this architecture) but not in Threat Cause Recall (9 STRIDE-mapped causes) and not in the (target, STRIDE) metric."
+  ],
+  "category_semantics": "The categories of a cause are its plausible STRIDE classifications. None is required. A correctly identified root cause counts exactly once in cause recall, whatever STRIDE impacts a prediction names. The quality of the STRIDE classification is evaluated separately.",
+  "chain_policy": "Candidate chain causes are preserved for a separate, later analysis of cross-element attack chains. They are excluded from the confirmed list and from both recall metrics.",
+  "recall_sets": {
+    "threat_cause_recall": ["CIP-01", "CIP-02", "CIP-03", "CIP-05", "CIP-06", "CIP-07", "CIP-08", "CIP-09", "CIP-10"],
+    "security_control_gap_recall": ["CIP-01", "CIP-02", "CIP-03", "CIP-04", "CIP-05", "CIP-06", "CIP-07", "CIP-08", "CIP-09", "CIP-10", "CIP-11"]
+  },
+    "causes": [
     {
       "ref": "CIP-01",
       "cause_id": "ingest_api.no_rate_limiting",
       "target": "ingest_api",
       "target_kind": "component",
       "root_cause": "The ingest API has rate limiting disabled.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.ingest_api.config.rate_limiting_enabled", "observed": false, "role": "primary"},
         {"path": "components.ingest_api.internet_exposed", "observed": true, "role": "supporting"}
       ],
       "evidence_type": "direct",
+      "established": "Rate limiting is off (rate_limiting_enabled = false) on an internet-exposed endpoint.",
+      "hypothetical": "That request volume actually exhausts capacity or cost. This is a scenario, not a stated fact.",
       "justification": "Rate limiting is stated to be off on an internet-exposed endpoint, so request volume is not bounded.",
       "difficulty": {
         "level": "easy",
@@ -45,11 +66,15 @@
       "target": "raw_bucket",
       "target_kind": "component",
       "root_cause": "The raw data bucket is configured for public access.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.raw_bucket.config.public_access", "observed": true, "role": "primary"},
         {"path": "components.raw_bucket.stores_sensitive_data", "observed": true, "role": "supporting"}
       ],
       "evidence_type": "direct",
+      "established": "Public access is on (public_access = true) for a bucket that holds sensitive raw records.",
+      "hypothetical": "That a third party actually reads the records. The kind of access (read or write) behind the setting is not specified; only read is assumed as a minimum.",
       "justification": "Public access is stated to be on for a bucket holding sensitive raw records, so those records can be accessed by parties outside the system.",
       "difficulty": {
         "level": "easy",
@@ -59,7 +84,7 @@
         {"category": "information_disclosure", "scenario": "Anyone who can reach the bucket's public endpoint can access, at minimum read, the stored records."}
       ],
       "preconditions_not_stated": [],
-      "notes": "The component attribute internet_exposed is false while config.public_access is true. The two disagree. This draft follows the explicit configuration; a reading based on the attribute alone would miss the cause. Public write access is not stated and is not claimed (see unsupported item CIP-U3)."
+      "notes": "The component attribute internet_exposed is false while config.public_access is true. The two disagree. This list follows the explicit configuration; a reading based on the attribute alone would miss the cause. Public write access is not stated and is not claimed (see unsupported item CIP-U3)."
     },
     {
       "ref": "CIP-03",
@@ -67,11 +92,15 @@
       "target": "raw_bucket",
       "target_kind": "component",
       "root_cause": "The raw data bucket is not encrypted at rest.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.raw_bucket.config.encryption_at_rest", "observed": false, "role": "primary"},
         {"path": "components.raw_bucket.stores_sensitive_data", "observed": true, "role": "supporting"}
       ],
       "evidence_type": "direct",
+      "established": "Encryption at rest is off (encryption_at_rest = false) for sensitive data.",
+      "hypothetical": "That someone actually obtains storage-level access (media, snapshots, copies). This is a scenario, not a stated fact.",
       "justification": "Encryption at rest is stated to be off for sensitive data, so stored data is exposed to anyone obtaining storage-level access.",
       "difficulty": {
         "level": "easy",
@@ -88,26 +117,26 @@
       "cause_id": "raw_bucket.no_versioning",
       "target": "raw_bucket",
       "target_kind": "component",
-      "root_cause": "The raw data bucket has versioning disabled, so overwritten or deleted objects cannot be restored.",
+      "root_cause": "Versioning is disabled on the raw data bucket, so overwritten or deleted objects cannot be restored.",
+      "risk_class": "recoverability",
+      "stride_scored": false,
       "evidence": [
         {"path": "components.raw_bucket.config.versioning_enabled", "observed": false, "role": "primary"},
-        {"path": "data_flows.ingest_to_raw_bucket.source", "observed": "ingest_api", "role": "supporting"},
-        {"path": "data_flows.ingest_to_raw_bucket.target", "observed": "raw_bucket", "role": "supporting"},
-        {"path": "data_flows.producer_to_ingest.source", "observed": "producer", "role": "supporting"}
+        {"path": "components.raw_bucket.stores_sensitive_data", "observed": true, "role": "supporting"}
       ],
-      "evidence_type": "derived",
-      "justification": "The missing control is stated. A write path from an external producer through the ingest API into the bucket is shown by the flows, so records can be overwritten or removed through it and cannot be recovered.",
+      "evidence_type": "direct",
+      "established": "Versioning is off (versioning_enabled = false). This establishes missing recoverability of the stored objects.",
+      "hypothetical": "That objects are overwritten or deleted, by error or abuse, and that this is done by an unauthorized writer. No actor, no public write access and no compromised writer is stated, so unauthorized modification is not established.",
+      "justification": "The stated flag shows a missing recoverability control. It does not show how objects would come to be changed, and it does not indicate unauthorized write access.",
       "difficulty": {
-        "level": "medium",
-        "rationale": "The missing control has to be combined with the write path shown by the flows, and the impact is one of recoverability, not direct access."
+        "level": "easy",
+        "rationale": "The flag names the disabled control; the relevance of versioning for recovery is general knowledge."
       },
-      "categories": [
-        {"category": "tampering", "scenario": "Records written through the ingest path are overwritten or deleted, by error or abuse, and cannot be restored."}
-      ],
+      "categories": [],
       "preconditions_not_stated": [
-        "An actor or fault that actually overwrites or deletes objects: no public write access or compromised writer is stated."
+        "An actor or fault that overwrites or deletes objects is not stated."
       ],
-      "notes": "Weakness is a missing recoverability control, not an attack by itself. Reviewer should confirm that this belongs in the confirmed list."
+      "notes": "Owner decisions (G2): disabled versioning proves lost recoverability, not a possible unauthorized write. Documented security control gap (recoverability), not mapped to STRIDE tampering. Counts in Security Control Gap Recall only, not in Threat Cause Recall. Difficulty easy (confirmed). A prediction that describes tampering on raw_bucket as a consequence of missing versioning still matches this cause by its root cause."
     },
     {
       "ref": "CIP-05",
@@ -115,11 +144,15 @@
       "target": "raw_bucket",
       "target_kind": "component",
       "root_cause": "Access logging is disabled on the raw data bucket.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.raw_bucket.config.access_logging_enabled", "observed": false, "role": "primary"},
         {"path": "components.raw_bucket.stores_sensitive_data", "observed": true, "role": "supporting"}
       ],
       "evidence_type": "direct",
+      "established": "Access logging is off (access_logging_enabled = false) for a bucket with sensitive data.",
+      "hypothetical": "That an access actually occurs that later needs to be attributed. This is a scenario, not a stated fact.",
       "justification": "Access logging is stated to be off for a bucket with sensitive data, so access to it cannot be reconstructed.",
       "difficulty": {
         "level": "easy",
@@ -129,52 +162,61 @@
         {"category": "repudiation", "scenario": "Reads and writes of sensitive raw data cannot be attributed to an actor."}
       ],
       "preconditions_not_stated": [],
-      "notes": ""
+      "notes": "Owner decision (G2): stays repudiation (attribution after the fact)."
     },
     {
       "ref": "CIP-06",
       "cause_id": "processing_cluster.admin_role_account_wide",
       "target": "processing_cluster",
       "target_kind": "component",
-      "root_cause": "The processing cluster runs with an admin role scoped to the whole account instead of least-privilege access.",
+      "root_cause": "The processing cluster uses an overprivileged role model: an admin role scoped to the whole account instead of least-privilege access.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.processing_cluster.config.iam_role", "observed": "admin", "role": "primary"},
         {"path": "components.processing_cluster.config.iam_role_scope", "observed": "account-wide", "role": "primary"}
       ],
       "evidence_type": "direct",
+      "established": "The cluster role is admin (iam_role = admin) with account-wide scope (iam_role_scope = account-wide).",
+      "hypothetical": "That a job or node is compromised and uses the role. The configuration shows excess privilege and large damage potential, not an escalation path.",
       "justification": "An admin role with account-wide scope is stated, so anything running on the cluster holds privileges far beyond what processing needs.",
       "difficulty": {
         "level": "medium",
         "rationale": "Two stated facts on one element are needed to see the excess: 'admin' alone could be narrowly scoped, 'account-wide' removes that bound."
       },
       "categories": [
-        {"category": "elevation_of_privilege", "scenario": "A compromised job or cluster node acts with account-wide admin rights."}
+        {"category": "elevation_of_privilege", "scenario": "If a job or cluster node is compromised, it acts with account-wide admin rights."}
       ],
       "preconditions_not_stated": [],
-      "notes": "Impact on other elements (for example the monitoring service) is not claimed here; see candidate chain CIP-X1."
+      "stride_mapping_note": "Elevation of privilege is a coarse STRIDE mapping for an overprivileged role model. No escalation path is established or claimed. Treated the same way as MTS-06.",
+      "notes": "Owner decision (G2): handled consistently with MTS-06. Impact on other elements (for example the monitoring service) is not claimed here; see candidate chain CIP-X1."
     },
     {
       "ref": "CIP-07",
-      "cause_id": "processing_cluster.imds_v1_allowed",
+      "cause_id": "processing_cluster.imdsv2_not_enforced",
       "target": "processing_cluster",
       "target_kind": "component",
-      "root_cause": "The cluster does not require the hardened instance metadata service (IMDSv2), so the older, weaker version remains available.",
+      "root_cause": "The processing cluster does not enforce IMDSv2 (instance_metadata_v2_required is false), so the weaker IMDSv1 remains usable.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.processing_cluster.config.instance_metadata_v2_required", "observed": false, "role": "primary"}
       ],
       "evidence_type": "direct",
-      "justification": "The hardened metadata service is stated not to be required. The older version exposes role credentials to anything that can make a request from the node.",
+      "established": "IMDSv2 is not required (instance_metadata_v2_required = false). This is the whole fact the architecture establishes.",
+      "hypothetical": "Theft of role credentials through the metadata service. It needs a foothold that can reach the metadata service, for example request forgery or code execution on the node. No such foothold is stated.",
+      "justification": "The architecture establishes only that IMDSv2 is not enforced. That this can lead to credential theft is a known property of IMDSv1; it is a scenario that depends on a foothold.",
       "difficulty": {
         "level": "medium",
-        "rationale": "The flag names the disabled control, but its relevance (credential theft through the metadata service) is specialist knowledge."
+        "rationale": "The flag names the disabled control, but its relevance (credential exposure through the metadata service) is specialist knowledge."
       },
       "categories": [
-        {"category": "information_disclosure", "scenario": "Role credentials are read from the metadata service by code or a request-forgery bug running on the node."}
+        {"category": "information_disclosure", "scenario": "If a foothold exists on the node, role credentials can be read from the metadata service."}
       ],
       "preconditions_not_stated": [
         "A foothold that can reach the metadata service, for example request forgery or code execution on the node, is not stated."
       ],
-      "notes": "The combination with CIP-06 (stolen credentials carry an admin role) is a chain, see candidate CIP-X2."
+      "notes": "Owner correction (G2): formulated as missing IMDSv2 enforcement; configuration and hypothetical credential theft are kept apart. The combination with CIP-06 (stolen credentials carry an admin role) is a chain, see candidate CIP-X2."
     },
     {
       "ref": "CIP-08",
@@ -182,11 +224,15 @@
       "target": "warehouse",
       "target_kind": "component",
       "root_cause": "The data warehouse is not encrypted at rest.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.warehouse.config.encryption_at_rest", "observed": false, "role": "primary"},
         {"path": "components.warehouse.stores_sensitive_data", "observed": true, "role": "supporting"}
       ],
       "evidence_type": "direct",
+      "established": "Encryption at rest is off (encryption_at_rest = false) for a store of sensitive processed data.",
+      "hypothetical": "That someone actually obtains storage-level access. This is a scenario, not a stated fact.",
       "justification": "Encryption at rest is stated to be off for a store of sensitive processed data.",
       "difficulty": {
         "level": "easy",
@@ -204,11 +250,15 @@
       "target": "warehouse",
       "target_kind": "component",
       "root_cause": "Audit logging is disabled on the data warehouse.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.warehouse.config.audit_logging_enabled", "observed": false, "role": "primary"},
         {"path": "components.warehouse.stores_sensitive_data", "observed": true, "role": "supporting"}
       ],
       "evidence_type": "direct",
+      "established": "Audit logging is off (audit_logging_enabled = false) for a store of sensitive data.",
+      "hypothetical": "That a query or change occurs that later needs to be attributed. This is a scenario, not a stated fact.",
       "justification": "Audit logging is stated to be off for a store of sensitive data, so queries and changes cannot be reconstructed.",
       "difficulty": {
         "level": "easy",
@@ -218,7 +268,7 @@
         {"category": "repudiation", "scenario": "Queries against, and changes to, sensitive warehouse data cannot be attributed to an actor."}
       ],
       "preconditions_not_stated": [],
-      "notes": ""
+      "notes": "Owner decision (G2): stays repudiation (attribution after the fact)."
     },
     {
       "ref": "CIP-10",
@@ -226,10 +276,14 @@
       "target": "monitoring",
       "target_kind": "component",
       "root_cause": "The monitoring service retains logs for zero days.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.monitoring.config.log_retention_days", "observed": 0, "role": "primary"}
       ],
       "evidence_type": "direct",
+      "established": "Log retention is zero days (log_retention_days = 0).",
+      "hypothetical": "That an event actually needs to be reconstructed later. This is a scenario, not a stated fact.",
       "justification": "A retention period of zero days means logs do not persist, so events cannot be reconstructed afterwards.",
       "difficulty": {
         "level": "easy",
@@ -239,28 +293,30 @@
         {"category": "repudiation", "scenario": "Actions across the pipeline cannot be reconstructed or attributed after the fact."}
       ],
       "preconditions_not_stated": [],
-      "notes": "STRIDE has no category for detection gaps; repudiation is used by convention for logging and monitoring gaps."
+      "notes": "Owner decision (G2): stays repudiation. Retention decides whether past events can be attributed. This differs from CIP-11 (alerting)."
     },
     {
       "ref": "CIP-11",
       "cause_id": "monitoring.alerting_disabled",
       "target": "monitoring",
       "target_kind": "component",
-      "root_cause": "Alerting is disabled on the monitoring service.",
+      "root_cause": "Alerting is disabled on the monitoring service, so security-relevant events raise no alarm.",
+      "risk_class": "detection_gap",
+      "stride_scored": false,
       "evidence": [
         {"path": "components.monitoring.config.alerting_enabled", "observed": false, "role": "primary"}
       ],
       "evidence_type": "direct",
-      "justification": "Alerting is stated to be off, so security-relevant events raise no alarm.",
+      "established": "Alerting is off (alerting_enabled = false).",
+      "hypothetical": "That an attack or misuse happens that alerting would have caught. This is a scenario, not a stated fact.",
+      "justification": "Alerting is stated to be off, so detection and response depend on someone reviewing data by hand. This delays detection; it does not by itself make an action deniable.",
       "difficulty": {
         "level": "easy",
         "rationale": "The flag names the disabled control; the relevance of alerting is general knowledge."
       },
-      "categories": [
-        {"category": "repudiation", "scenario": "Misuse goes unnoticed and is not attributed in time."}
-      ],
+      "categories": [],
       "preconditions_not_stated": [],
-      "notes": "A different control than CIP-10 (alerting versus retention) on the same target and category. Kept separate; a prediction may mention both."
+      "notes": "Owner decisions (G2): missing alerting is not repudiation. Documented security control gap (detection), outside the STRIDE mapping. Counts in Security Control Gap Recall only, not in Threat Cause Recall. A prediction that labels it repudiation still matches by its root cause."
     }
   ],
   "boundary_cases": [
@@ -324,7 +380,7 @@
       "target": "processing_cluster",
       "target_kind": "component",
       "category": "elevation_of_privilege",
-      "root_cause": "The weaker metadata service allows credential theft from the node, and the stolen credentials carry an account-wide admin role.",
+      "root_cause": "If a foothold exists, the weaker metadata service allows credential theft from the node, and the stolen credentials carry an account-wide admin role.",
       "involves": ["CIP-06", "CIP-07"],
       "evidence": [
         {"path": "components.processing_cluster.config.instance_metadata_v2_required", "observed": false, "role": "primary"},

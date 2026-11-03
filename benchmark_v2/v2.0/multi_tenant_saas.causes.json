@@ -1,7 +1,13 @@
 {
-  "schema": "v2-cause-list-draft",
-  "status": "DRAFT",
-  "gt_version": "V2.0-draft",
+  "schema": "v2-cause-list",
+  "status": "FROZEN",
+  "gt_version": "V2.0",
+  "frozen": {
+    "date": "2026-11-03",
+    "approved_by": "owner (gate G2)",
+    "decisions": "V2_SPEC.md D17 to D23 and benchmark_v2/v2.0/G2_DECISIONS.md",
+    "checksums": "benchmark_v2/v2.0/MANIFEST.json"
+  },
   "architecture_id": "multi_tenant_saas",
   "provenance": {
     "derived_from": {
@@ -13,20 +19,34 @@
       "any V1 or later results, traces, or predictions",
       "output of the deterministic baseline"
     ],
-    "disclosure": "The drafting assistant also wrote this architecture file and the V1 ground truth earlier in the same working session and had seen V1 results. For this draft it opened only the architecture file named above. Prior exposure cannot be excluded, so independence of the content rests on the owner's review (gate G2). Because the same assistant designed the architecture, evidence-based reading mostly reproduces design intent."
+    "disclosure": "The drafting assistant also wrote this architecture file and the V1 ground truth earlier in the same working session and had seen V1 results. For the first draft of this list it opened only the architecture file named above; later edits followed the owner's review decisions. Prior exposure cannot be excluded, so independence of the content rests on the owner's review (gate G2). Because the same assistant designed the architecture, evidence-based reading mostly reproduces design intent."
   },
   "difficulty_operationalization": "Applies V2_SPEC.md section 5. easy: a stated value names a missing or disabled control whose security relevance is general knowledge. medium: the value names a mechanism or specialist control whose weakness must be known, or at least two stated facts have to be combined. hard: stated facts from at least two different elements or relationships must be combined and the weakness is not stated at any single one. Applied blind to model results and to deterministic-baseline output.",
-  "causes": [
+  "limitations": [
+    "No confirmed cause is hard, and every confirmed cause is direct: each weakness is stated as a setting on one element. Complex attack chains across several elements are therefore covered only to a limited extent by this cause evaluation.",
+    "The cross-element chains that could be read from this architecture (MTS-X1, MTS-X2) are preserved as candidates for a separate later analysis and are excluded from the confirmed list and from both recall metrics. Results on this architecture say little about whether a model can find cross-element chains."
+  ],
+  "category_semantics": "The categories of a cause are its plausible STRIDE classifications. None is required. A correctly identified root cause counts exactly once in cause recall, whatever STRIDE impacts a prediction names. The quality of the STRIDE classification is evaluated separately.",
+  "chain_policy": "Candidate chain causes are preserved for a separate, later analysis of cross-element attack chains. They are excluded from the confirmed list and from both recall metrics.",
+  "recall_sets": {
+    "threat_cause_recall": ["MTS-01", "MTS-02", "MTS-03", "MTS-04", "MTS-05", "MTS-06"],
+    "security_control_gap_recall": ["MTS-01", "MTS-02", "MTS-03", "MTS-04", "MTS-05", "MTS-06"]
+  },
+    "causes": [
     {
       "ref": "MTS-01",
       "cause_id": "api.tenant_id_from_client_input",
       "target": "api",
       "target_kind": "component",
       "root_cause": "The API takes the tenant identity from a client-supplied request parameter instead of deriving it from the authenticated identity.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.api.config.tenant_id_source", "observed": "request_parameter", "role": "primary"}
       ],
       "evidence_type": "direct",
+      "established": "The tenant context comes from a request parameter (tenant_id_source = request_parameter).",
+      "hypothetical": "That a caller actually submits another tenant's id and that the request is served. This is a scenario, not a stated fact.",
       "justification": "The configuration states where the tenant context comes from. A value the caller controls can name another tenant, so the tenant boundary depends on the caller's honesty.",
       "difficulty": {
         "level": "medium",
@@ -45,11 +65,15 @@
       "target": "api",
       "target_kind": "component",
       "root_cause": "The API authenticates callers but performs no authorization beyond that, so any authenticated caller is treated as permitted.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.api.config.authorization_checks", "observed": "authentication_only", "role": "primary"},
         {"path": "components.api.config.authentication", "observed": "oauth2", "role": "supporting"}
       ],
       "evidence_type": "direct",
+      "established": "Authentication exists (oauth2) and authorization is limited to it (authorization_checks = authentication_only).",
+      "hypothetical": "That an authenticated caller actually performs an operation or reads an object beyond its role. This is a scenario, not a stated fact.",
       "justification": "Authentication is stated to exist, and authorization is stated to be limited to it. Authentication establishes who the caller is, not what the caller may do.",
       "difficulty": {
         "level": "easy",
@@ -68,10 +92,14 @@
       "target": "document_service",
       "target_kind": "component",
       "root_cause": "The document service does not verify that a requested object belongs to the requesting caller or tenant.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.document_service.config.object_ownership_check", "observed": false, "role": "primary"}
       ],
       "evidence_type": "direct",
+      "established": "The ownership check is disabled (object_ownership_check = false).",
+      "hypothetical": "That a caller supplies another party's object identifier and the object is served or changed. This is a scenario, not a stated fact.",
       "justification": "The ownership check is stated to be disabled. Object identifiers alone then select which object is served.",
       "difficulty": {
         "level": "easy",
@@ -90,6 +118,8 @@
       "target": "shared_db",
       "target_kind": "component",
       "root_cause": "Tenants share one schema and the database enforces neither row-level security nor any other tenant isolation.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.shared_db.config.tenant_isolation", "observed": false, "role": "primary"},
         {"path": "components.shared_db.config.row_level_security", "observed": false, "role": "supporting"},
@@ -97,6 +127,8 @@
         {"path": "components.shared_db.stores_sensitive_data", "observed": true, "role": "supporting"}
       ],
       "evidence_type": "direct",
+      "established": "Tenants share one schema (multi_tenancy = shared_schema); tenant isolation and row-level security are both disabled; the database holds sensitive data.",
+      "hypothetical": "That a query or write without a correct tenant filter actually occurs and reaches other tenants' rows. This is a scenario, not a stated fact.",
       "justification": "Isolation is stated to be absent in a shared schema holding sensitive data. Any query or write without a correct tenant filter then reaches other tenants' rows.",
       "difficulty": {
         "level": "easy",
@@ -107,52 +139,65 @@
         {"category": "tampering", "scenario": "A write without a correct tenant filter changes other tenants' rows."}
       ],
       "preconditions_not_stated": [],
-      "notes": "Two flags (row_level_security, tenant_isolation) describe one control gap and are merged into one cause. Reviewer may prefer two causes."
+      "notes": "Owner decision (G2): one cause. The flags row_level_security and tenant_isolation describe one control gap and are not counted separately; a prediction naming either, or both, matches this one cause."
     },
     {
       "ref": "MTS-05",
-      "cause_id": "object_store.no_per_tenant_partitioning",
+      "cause_id": "object_store.no_per_tenant_prefix_enforcement",
       "target": "object_store",
       "target_kind": "component",
-      "root_cause": "Stored files are not partitioned per tenant; nothing enforces a per-tenant prefix or equivalent separation.",
+      "root_cause": "The object store does not enforce a per-tenant prefix, so separation of tenant files is not guaranteed by the storage layer.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.object_store.config.per_tenant_prefix_enforced", "observed": false, "role": "primary"},
         {"path": "components.object_store.stores_sensitive_data", "observed": true, "role": "supporting"}
       ],
       "evidence_type": "direct",
-      "justification": "Per-tenant separation is stated to be unenforced for sensitive tenant files, so reaching the storage with another tenant's path is enough to reach their files.",
+      "established": "A per-tenant prefix is not enforced (per_tenant_prefix_enforced = false) on a store of sensitive tenant files.",
+      "hypothetical": "Cross-tenant access is not established by this fact. It would need a request that reaches the storage with another tenant's prefix. MTS-01 and MTS-03 could supply one, but that combination is the excluded chain MTS-X1.",
+      "justification": "The storage layer is stated not to enforce tenant separation, so any separation depends on the callers and on other layers. The architecture states a missing control here, not a demonstrated access path.",
       "difficulty": {
         "level": "easy",
         "rationale": "The flag names the disabled control; the relevance of tenant separation in shared storage is general knowledge."
       },
       "categories": [
-        {"category": "information_disclosure", "scenario": "A request that reaches the storage with another tenant's path reads their files."},
-        {"category": "tampering", "scenario": "A request with another tenant's path overwrites or deletes their files."}
+        {"category": "information_disclosure", "scenario": "If a request reaches the storage with another tenant's path, nothing at the storage layer prevents reading those files."},
+        {"category": "tampering", "scenario": "If a request reaches the storage with another tenant's path, nothing at the storage layer prevents overwriting or deleting those files."}
       ],
-      "preconditions_not_stated": [],
-      "notes": "encryption_at_rest is true and public_access is false. Neither separates one tenant's callers from another tenant's objects, so they do not mitigate this cause."
+      "preconditions_not_stated": [
+        "A request path that reaches the storage with another tenant's prefix is not stated for this element."
+      ],
+      "notes": "Owner correction (G2): missing prefix enforcement is not equated with proven cross-tenant access. encryption_at_rest is true and public_access is false; neither separates one tenant's callers from another tenant's objects, so they do not mitigate this cause."
     },
     {
       "ref": "MTS-06",
       "cause_id": "admin_portal.single_global_admin_role",
       "target": "admin_portal",
       "target_kind": "component",
-      "root_cause": "Administration uses one global admin role with no separation between platform administration and per-tenant administration.",
+      "root_cause": "Administration uses an overprivileged role model: one global admin role with no separation between platform administration and per-tenant administration.",
+      "risk_class": "stride_threat",
+      "stride_scored": true,
       "evidence": [
         {"path": "components.admin_portal.config.role_separation", "observed": "single_global_admin_role", "role": "primary"},
         {"path": "components.admin_portal.internet_exposed", "observed": true, "role": "supporting"}
       ],
       "evidence_type": "direct",
-      "justification": "A single global role is stated for an internet-exposed admin interface of a multi-tenant system. One compromised or misused credential then spans every tenant.",
+      "established": "A single global admin role is used (role_separation = single_global_admin_role) on an internet-exposed admin portal of a multi-tenant system.",
+      "hypothetical": "That the role is compromised, misused, or reached from a tenant context. The configuration shows large damage potential and missing privilege separation, not an escalation path.",
+      "justification": "A single global role means every holder has platform-wide reach and no administrative duty is separated. The architecture does not state how the role is obtained or protected.",
       "difficulty": {
         "level": "medium",
         "rationale": "The value names a role model. Its consequence (one credential spans all tenants) has to be inferred from 'global' in a multi-tenant system."
       },
       "categories": [
-        {"category": "elevation_of_privilege", "scenario": "Compromise or misuse of the single admin role gives control over every tenant."}
+        {"category": "elevation_of_privilege", "scenario": "If the single admin role is obtained or misused, its holder acts across every tenant."}
       ],
-      "preconditions_not_stated": [],
-      "notes": ""
+      "preconditions_not_stated": [
+        "How the admin role is obtained, protected, or abused is not stated."
+      ],
+      "stride_mapping_note": "Elevation of privilege is a coarse STRIDE mapping for an overprivileged role model. No escalation path is established or claimed. Treated the same way as CIP-06.",
+      "notes": "Owner decisions (G2): missing privilege separation and large damage potential, not automatically a privilege-escalation attack; CIP-06 and MTS-06 are handled consistently."
     }
   ],
   "boundary_cases": [
@@ -210,7 +255,7 @@
       "target": "document_service",
       "target_kind": "component",
       "category": "information_disclosure",
-      "root_cause": "No layer on the file path enforces tenant isolation: the API accepts a client-supplied tenant, the document service skips the ownership check, and the storage has no per-tenant partitioning.",
+      "root_cause": "No layer on the file path enforces tenant isolation: the API accepts a client-supplied tenant, the document service skips the ownership check, and the storage has no per-tenant prefix enforcement.",
       "involves": ["MTS-01", "MTS-03", "MTS-05"],
       "evidence": [
         {"path": "components.api.config.tenant_id_source", "observed": "request_parameter", "role": "primary"},
