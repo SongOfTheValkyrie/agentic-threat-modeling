@@ -34,9 +34,10 @@ repeats (variance ±0.00), so only latency varied. The aggregated run log is in
 | multi_tenant_saas | hard (authorization) | 0.50 | **0.62** | 0.25 | 0.52 |
 
 Fixed RAG has the best F1 on four of five architectures; the deterministic
-baseline wins only on `microservices_async` (≈68% easy threats that fixed rules
-cover perfectly). The PEV agent beats the free agent everywhere but **never
-reaches Fixed RAG**.
+baseline wins only on `microservices_async`, where ≈68% of the ground-truth
+entries are attribute-derivable (labelled `easy`). That share is a property of
+how the benchmark was built, not an independent finding (see key finding 2).
+The PEV agent beats the free agent everywhere but **never reaches Fixed RAG**.
 
 ## Recall on the hard class
 
@@ -47,6 +48,15 @@ reaches Fixed RAG**.
 
 On `multi_tenant_saas` the PEV agent matches Fixed RAG on hard recall (0.83);
 on `cloud_ingest_pipeline` RAG is clearly ahead (0.71 vs 0.43).
+
+The deterministic column (0.00) is **true by construction**: in V1 the `easy`
+class is exactly the set of keys the baseline finds, so every `medium` and
+`hard` entry is, by definition, one it does not find. Read it as a property of
+the labels, not as evidence that rules fail on hard threats. The RAG and agent
+columns are genuine measurements, but against `hard` labels that are
+themselves inconsistent in places (e.g. `ingest_api_denial_of_service` is
+labelled `hard` although `rate_limiting_enabled: false` is stated directly).
+V2 relabels difficulty by required reasoning effort (`V2_SPEC.md`).
 
 ## Cost: quality is not free
 
@@ -94,9 +104,20 @@ cost.
    the best of the four, not necessarily strong in absolute terms. Its main
    weakness is precision (0.47–0.83) — but see the ground-truth caveat.
 
-2. **The deterministic baseline is precise but blind to hard threats.**
-   Precision 1.00 everywhere, all easy threats covered, hard-class recall 0.00
-   in both hard domains.
+2. **The baseline's per-difficulty results are true by construction and are
+   not a finding.** In V1 the `easy` class was defined as exactly the threats
+   the baseline finds from single attributes, and the labels were reconciled
+   with baseline output while the benchmark was built (for example,
+   `multi_tenant_saas` `admin_portal_spoofing` was added to the ground truth
+   after the baseline flagged it). So "easy recall 1.00, medium/hard 0.00"
+   follows from the labelling, and precision 1.00 is not independent evidence of
+   precision either. An earlier version of this file stated that the baseline is
+   "blind to hard threats"; that wording over-read the labels and is withdrawn.
+   What the data does support: the baseline's overall scores track the share of
+   ground-truth entries that are attribute-derivable, which is why it wins on
+   `microservices_async`. Whether rule-based detection genuinely misses
+   knowledge-dependent threats is a question for the V2 difficulty labels,
+   which are defined by reasoning effort independently of the baseline.
 
 3. **The free agent under-performs because it never retrieves.** Full element
    coverage (all runs `finished`, step budget never exhausted) but
@@ -123,6 +144,11 @@ cost.
   LLM-backed approach produced identical threats each repeat (only latency
   varied). The n=5 sweep confirms stability but provides **no statistical
   spread**; stronger claims would need temperature > 0 and more seeds.
+- **V1 matching and labels are being superseded.** V1 matches on
+  `(target, category)` only and ignores the stated cause. V2 (`V2_SPEC.md`)
+  scores root causes. V1 is frozen under tag `v1-benchmark`, and the same stored
+  predictions will be scored under both schemes to show how much the evaluation
+  method alone moves the ranking. Claims below are V1 claims.
 - **Ground truth is the biggest risk (validate first).** The architectures are
   synthetic and their ground truth AI-drafted. If incomplete, precision/recall
   are distorted — an apparent RAG false positive may be a legitimate threat
