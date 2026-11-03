@@ -38,3 +38,6 @@ results/
 
 # Local run logs (tee output from sweep scripts)
 *_run.log
+
+# Private mapping of the blind annotation export (must not be shared with the annotator)
+annotation_private/

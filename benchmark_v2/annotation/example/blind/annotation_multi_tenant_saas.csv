@@ -1,0 +1,16 @@
+pred_uid,architecture,target,target_kind,category,description,mitigation,label,unsure,note
+pred-edbe1aff787c201d,multi_tenant_saas,shared_db,component,tampering,SYNTHETIC: rows changed across tenants.,SYNTHETIC mitigation 3,,,
+pred-1fe6933396fb6c19,multi_tenant_saas,object_store,component,tampering,SYNTHETIC: files can be overwritten.,SYNTHETIC mitigation 1,,,
+pred-fc383d1d44afac62,multi_tenant_saas,document_service,component,tampering,SYNTHETIC: objects can be changed by others.,SYNTHETIC mitigation 2,,,
+pred-5375982fcd538d1d,multi_tenant_saas,admin_portal,component,spoofing,SYNTHETIC: portal login can be impersonated.,SYNTHETIC mitigation 3,,,
+pred-57106f0bc9b1dd60,multi_tenant_saas,api,component,elevation_of_privilege,SYNTHETIC: caller acts beyond its role.,SYNTHETIC mitigation 0,,,
+pred-ef8b3137866d0944,multi_tenant_saas,user_to_api,data_flow,tampering,SYNTHETIC: request body can be altered.,SYNTHETIC mitigation 2,,,
+pred-89eb07c02d6f10de,multi_tenant_saas,api_to_db,data_flow,information_disclosure,SYNTHETIC: unéxpected ünicode text – kept as is.,SYNTHETIC mitigation 4,,,
+pred-21e5d95871b17399,multi_tenant_saas,object_store,component,information_disclosure,"SYNTHETIC: files readable, with a comma, and ""quotes"".",SYNTHETIC mitigation 3,,,
+pred-ab0cdfb9136b9d40,multi_tenant_saas,document_service,component,information_disclosure,SYNTHETIC: documents served without ownership check.,SYNTHETIC mitigation 2,,,
+pred-8035f01a859da167,multi_tenant_saas,api,component,spoofing,SYNTHETIC: weak session handling on the api.,SYNTHETIC mitigation 0,,,
+pred-45f3054db58c9896,multi_tenant_saas,shared_db,component,information_disclosure,SYNTHETIC: rows readable across tenants (other wording).,SYNTHETIC mitigation 1,,,
+pred-cf774598d4d58d91,multi_tenant_saas,admin_portal,component,elevation_of_privilege,"SYNTHETIC: admin role is broad.
+Second line of the same text.",SYNTHETIC mitigation 4,,,
+pred-355034a2f7f76861,multi_tenant_saas,shared_db,component,information_disclosure,SYNTHETIC: rows readable across tenants.,SYNTHETIC mitigation 1,,,
+pred-d61d8ea52a975759,multi_tenant_saas,api,component,denial_of_service,SYNTHETIC: no request limits.,SYNTHETIC mitigation 0,,,

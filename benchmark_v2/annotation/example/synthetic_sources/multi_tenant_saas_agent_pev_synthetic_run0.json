@@ -1,0 +1,51 @@
+{
+ "schema_version": 1,
+ "timestamp": "2026-01-01T00:01:00+00:00",
+ "approach": "agent_pev",
+ "model": "synthetic-model",
+ "architecture": "multi_tenant_saas",
+ "run_index": 0,
+ "code": {
+  "commit": "0000000000000000000000000000000000000002",
+  "dirty": false
+ },
+ "num_predictions": 4,
+ "predictions": [
+  {
+   "id": "agent_pev-threat-0",
+   "target": "api",
+   "target_kind": "component",
+   "category": "elevation_of_privilege",
+   "description": "SYNTHETIC: caller acts beyond its role.",
+   "mitigation": "SYNTHETIC mitigation 0",
+   "key": "api:elevation_of_privilege"
+  },
+  {
+   "id": "agent_pev-threat-1",
+   "target": "shared_db",
+   "target_kind": "component",
+   "category": "information_disclosure",
+   "description": "SYNTHETIC: rows readable across tenants (other wording).",
+   "mitigation": "SYNTHETIC mitigation 1",
+   "key": "shared_db:information_disclosure"
+  },
+  {
+   "id": "agent_pev-threat-2",
+   "target": "document_service",
+   "target_kind": "component",
+   "category": "tampering",
+   "description": "SYNTHETIC: objects can be changed by others.",
+   "mitigation": "SYNTHETIC mitigation 2",
+   "key": "document_service:tampering"
+  },
+  {
+   "id": "agent_pev-threat-3",
+   "target": "admin_portal",
+   "target_kind": "component",
+   "category": "spoofing",
+   "description": "SYNTHETIC: portal login can be impersonated.",
+   "mitigation": "SYNTHETIC mitigation 3",
+   "key": "admin_portal:spoofing"
+  }
+ ]
+}

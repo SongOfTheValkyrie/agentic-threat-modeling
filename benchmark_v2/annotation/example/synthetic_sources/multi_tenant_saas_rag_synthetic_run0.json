@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "timestamp": "2026-01-01T00:00:00+00:00",
+ "approach": "rag",
+ "model": "synthetic-model",
+ "architecture": "multi_tenant_saas",
+ "run_index": 0,
+ "code": {
+  "commit": "0000000000000000000000000000000000000001",
+  "dirty": false
+ },
+ "num_predictions": 5,
+ "predictions": [
+  {
+   "id": "rag-threat-0",
+   "target": "api",
+   "target_kind": "component",
+   "category": "spoofing",
+   "description": "SYNTHETIC: weak session handling on the api.",
+   "mitigation": "SYNTHETIC mitigation 0",
+   "key": "api:spoofing"
+  },
+  {
+   "id": "rag-threat-1",
+   "target": "shared_db",
+   "target_kind": "component",
+   "category": "information_disclosure",
+   "description": "SYNTHETIC: rows readable across tenants.",
+   "mitigation": "SYNTHETIC mitigation 1",
+   "key": "shared_db:information_disclosure"
+  },
+  {
+   "id": "rag-threat-2",
+   "target": "user_to_api",
+   "target_kind": "data_flow",
+   "category": "tampering",
+   "description": "SYNTHETIC: request body can be altered.",
+   "mitigation": "SYNTHETIC mitigation 2",
+   "key": "user_to_api:tampering"
+  },
+  {
+   "id": "rag-threat-3",
+   "target": "object_store",
+   "target_kind": "component",
+   "category": "information_disclosure",
+   "description": "SYNTHETIC: files readable, with a comma, and \"quotes\".",
+   "mitigation": "SYNTHETIC mitigation 3",
+   "key": "object_store:information_disclosure"
+  },
+  {
+   "id": "rag-threat-4",
+   "target": "admin_portal",
+   "target_kind": "component",
+   "category": "elevation_of_privilege",
+   "description": "SYNTHETIC: admin role is broad.\nSecond line of the same text.",
+   "mitigation": "SYNTHETIC mitigation 4",
+   "key": "admin_portal:elevation_of_privilege"
+  }
+ ]
+}

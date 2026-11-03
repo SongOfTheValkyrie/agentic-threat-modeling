@@ -1,0 +1,221 @@
+{
+ "order_rule": "within each architecture, rows are sorted ascending by sha256 of the text '<seed>:<prediction identifier>'",
+ "predictions": {
+  "pred-1fe6933396fb6c19": {
+   "approach": "agent_pev_noplan",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_noplan_synthetic_run0.json",
+   "index_in_file": 1,
+   "key": "object_store:tampering",
+   "model": "synthetic-model",
+   "row_in_sheet": 2,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "agent_pev_noplan-threat-1"
+  },
+  "pred-21e5d95871b17399": {
+   "approach": "rag",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_rag_synthetic_run0.json",
+   "index_in_file": 3,
+   "key": "object_store:information_disclosure",
+   "model": "synthetic-model",
+   "row_in_sheet": 8,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "rag-threat-3"
+  },
+  "pred-355034a2f7f76861": {
+   "approach": "rag",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_rag_synthetic_run0.json",
+   "index_in_file": 1,
+   "key": "shared_db:information_disclosure",
+   "model": "synthetic-model",
+   "row_in_sheet": 13,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "rag-threat-1"
+  },
+  "pred-45f3054db58c9896": {
+   "approach": "agent_pev",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_synthetic_run0.json",
+   "index_in_file": 1,
+   "key": "shared_db:information_disclosure",
+   "model": "synthetic-model",
+   "row_in_sheet": 11,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "agent_pev-threat-1"
+  },
+  "pred-5375982fcd538d1d": {
+   "approach": "agent_pev",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_synthetic_run0.json",
+   "index_in_file": 3,
+   "key": "admin_portal:spoofing",
+   "model": "synthetic-model",
+   "row_in_sheet": 4,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "agent_pev-threat-3"
+  },
+  "pred-57106f0bc9b1dd60": {
+   "approach": "agent_pev",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_synthetic_run0.json",
+   "index_in_file": 0,
+   "key": "api:elevation_of_privilege",
+   "model": "synthetic-model",
+   "row_in_sheet": 5,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "agent_pev-threat-0"
+  },
+  "pred-8035f01a859da167": {
+   "approach": "rag",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_rag_synthetic_run0.json",
+   "index_in_file": 0,
+   "key": "api:spoofing",
+   "model": "synthetic-model",
+   "row_in_sheet": 10,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "rag-threat-0"
+  },
+  "pred-89eb07c02d6f10de": {
+   "approach": "agent_pev_noplan",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_noplan_synthetic_run0.json",
+   "index_in_file": 4,
+   "key": "api_to_db:information_disclosure",
+   "model": "synthetic-model",
+   "row_in_sheet": 7,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "agent_pev_noplan-threat-4"
+  },
+  "pred-ab0cdfb9136b9d40": {
+   "approach": "agent_pev_noplan",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_noplan_synthetic_run0.json",
+   "index_in_file": 2,
+   "key": "document_service:information_disclosure",
+   "model": "synthetic-model",
+   "row_in_sheet": 9,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "agent_pev_noplan-threat-2"
+  },
+  "pred-cf774598d4d58d91": {
+   "approach": "rag",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_rag_synthetic_run0.json",
+   "index_in_file": 4,
+   "key": "admin_portal:elevation_of_privilege",
+   "model": "synthetic-model",
+   "row_in_sheet": 12,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "rag-threat-4"
+  },
+  "pred-d61d8ea52a975759": {
+   "approach": "agent_pev_noplan",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_noplan_synthetic_run0.json",
+   "index_in_file": 0,
+   "key": "api:denial_of_service",
+   "model": "synthetic-model",
+   "row_in_sheet": 14,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "agent_pev_noplan-threat-0"
+  },
+  "pred-edbe1aff787c201d": {
+   "approach": "agent_pev_noplan",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_noplan_synthetic_run0.json",
+   "index_in_file": 3,
+   "key": "shared_db:tampering",
+   "model": "synthetic-model",
+   "row_in_sheet": 1,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "agent_pev_noplan-threat-3"
+  },
+  "pred-ef8b3137866d0944": {
+   "approach": "rag",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_rag_synthetic_run0.json",
+   "index_in_file": 2,
+   "key": "user_to_api:tampering",
+   "model": "synthetic-model",
+   "row_in_sheet": 6,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "rag-threat-2"
+  },
+  "pred-fc383d1d44afac62": {
+   "approach": "agent_pev",
+   "architecture": "multi_tenant_saas",
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_synthetic_run0.json",
+   "index_in_file": 2,
+   "key": "document_service:tampering",
+   "model": "synthetic-model",
+   "row_in_sheet": 3,
+   "run_index": 0,
+   "sheet": "annotation_multi_tenant_saas.csv",
+   "threat_id": "agent_pev-threat-2"
+  }
+ },
+ "private": "Do not give this file to the annotator.",
+ "schema": "v2-annotation-private-mapping",
+ "schema_version": 1,
+ "seed": 20261103,
+ "sources": [
+  {
+   "approach": "agent_pev_noplan",
+   "architecture": "multi_tenant_saas",
+   "code": {
+    "commit": "0000000000000000000000000000000000000003",
+    "dirty": false
+   },
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_noplan_synthetic_run0.json",
+   "model": "synthetic-model",
+   "num_predictions": 5,
+   "run_index": 0,
+   "sha256": "912ee3bc1582558211f7deb369bc2dd1ab107eb4a41b3987d10766b445c46c71",
+   "timestamp": "2026-01-01T00:02:00+00:00"
+  },
+  {
+   "approach": "agent_pev",
+   "architecture": "multi_tenant_saas",
+   "code": {
+    "commit": "0000000000000000000000000000000000000002",
+    "dirty": false
+   },
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_agent_pev_synthetic_run0.json",
+   "model": "synthetic-model",
+   "num_predictions": 4,
+   "run_index": 0,
+   "sha256": "41a57de693083a45907a37e1e9845e1e196e67d53c09c2821027317ddb19c1f6",
+   "timestamp": "2026-01-01T00:01:00+00:00"
+  },
+  {
+   "approach": "rag",
+   "architecture": "multi_tenant_saas",
+   "code": {
+    "commit": "0000000000000000000000000000000000000001",
+    "dirty": false
+   },
+   "file": "benchmark_v2/annotation/example/synthetic_sources/multi_tenant_saas_rag_synthetic_run0.json",
+   "model": "synthetic-model",
+   "num_predictions": 5,
+   "run_index": 0,
+   "sha256": "42aa56c07b5f42af4386bfd1bed911f8940987abbaa1bffb49a57bccadd5cf05",
+   "timestamp": "2026-01-01T00:00:00+00:00"
+  }
+ ]
+}

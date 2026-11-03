@@ -55,8 +55,11 @@ prompts, model, knowledge base, retriever, or the architecture JSON files.
 | D22 | CIP-04 difficulty is `easy`. Granularity splits (MTS-01/MTS-02, CIP-02/CIP-03, CIP-10/CIP-11), the exclusion of cause chains from the confirmed list, and the scope rules stay as drafted. The chains are preserved for a separate later analysis. The empty `hard` class is accepted and documented as a limitation. Policy P1 (exposure alone is not evidence) is confirmed. MTS-04 stays one cause. | owner, G2 |
 | D23 | Control-gap claims (CIP-04, CIP-11). (1) With a valid mapping they count as `mapped` findings in cause precision. (2) In the adjusted V2 `(target, category)` metric, predictions that the annotation maps to CIP-04 or CIP-11 are excluded completely, neither TP nor FP, and the number of excluded predictions is reported. (3) Unmatched and unsupported predictions are never excluded wholesale; they stay in the precision assessment. (4) The original V1 key score is reported unchanged next to it. The adjusted V2 coarse score is a different metric and is never presented as identical to V1. | owner, G2 |
 
+| D24 | The annotation sheet has one label per prediction: a cause ID of the architecture, `valid_additional`, `unsupported`, or `pending_review`. The export is blind (no approach, run, file or trace information), randomized within each architecture across all approaches with a fixed seed, and keyed by stable opaque prediction identifiers. The mapping to the original prediction, run and approach is kept apart from the blind export. No label is assigned automatically. | owner |
+| D25 *(proposed)* | The sheet has a separate column `unsure` (`yes` or empty) next to the label, so that D13 (κ over items where both annotations are not `unsure`; share of `unsure` at most 10 %) stays computable. | assistant, not yet decided |
+
 Items marked *(proposed)* would be defaults that have not been explicitly
-decided. This version contains none.
+decided. This version contains one: D25. It does not affect the cause lists.
 
 ## 3. Ground-truth schema (V2)
 
@@ -175,10 +178,27 @@ by it. Identifiers must be unique across the files of one export.
 
 ### 7.1 Reference annotation
 
-Each prediction receives exactly one label: a **cause ID**, `none`,
-`new_cause_proposed` (with a short text), or `unsure`. Annotation order is
-randomized and the approach name is hidden. Labels are keyed by the stable
-prediction identifier (section 6).
+Each prediction receives exactly one label (D24): a **cause ID** of the
+architecture, `valid_additional`, `unsupported`, or `pending_review`. Free text,
+for example a short description of a proposed new cause, goes into a separate
+`note` column. The column `unsure` (`yes` or empty) marks an annotation that the
+annotator is not sure about (D25, proposed). Annotation order is randomized and the
+approach name is hidden. Labels are keyed by the stable prediction identifier
+(section 6).
+
+The earlier names map as follows: `none` is `unsupported`; `unsure` and
+`new_cause_proposed` are `pending_review`, with `unsure` kept as its own flag for D13.
+Chain candidates, boundary refs and unsupported refs are not labels.
+
+**Blind export.** `scripts/export_annotation_sheet.py` writes one sheet per
+architecture to `benchmark_v2/annotation/blind/`. Within an architecture, rows from
+all approaches are ordered by `sha256("<seed>:<prediction identifier>")` with the fixed
+seed 20261103, which makes the order reproducible and independent of the input order.
+The sheet holds the stored `target`, `target_kind`, `category`, `description` and
+`mitigation` unchanged and no approach, model, run, file, trace, model threat id or
+commit. The private mapping (`annotation_private/mapping.json`, git-ignored) joins each
+identifier to file, index, run and approach and is not handed to the annotator. The
+technical report is `benchmark_v2/annotation/EXPORT_REPORT.md`.
 
 ### 7.2 Outcomes per prediction
 
@@ -373,8 +393,9 @@ freeze.
   annotation (section 7.1) forces a choice. To be examined in the sample.
 - Whether `none` predictions with near-identical text within a run should be
   merged (section 7.3 currently counts each as its own claim).
-- Annotation export (file format, randomization seed handling) and the scorer.
-  The stable identifiers (section 6) are implemented; the export is not.
+- The scorer, the repeat-annotation sample (D12), and the LLM-grader test. The stable
+  identifiers (section 6) and the blind annotation export (section 7.1) are
+  implemented.
 - Because the coarse key `(target, category)` is shared by several causes in
   places (for example `api:elevation_of_privilege` by MTS-01 and MTS-02) and
   some excluded entries share a key with a confirmed cause, the coarse metric
@@ -413,3 +434,6 @@ architecture file it is derived from, or to the manifest means a new version
   prediction identifiers added (section 6). Cause lists frozen as GT V2.0 with
   checksums (section 13). An earlier entry of this log was dated 2026-09-23 by
   mistake; the changes were made on 2026-11-03.
+- 2026-11-03: Capture run done (commit 627a42e, 123 annotatable predictions). Blind
+  annotation export implemented and generated; annotation label set recorded as D24,
+  the `unsure` column as proposed D25.

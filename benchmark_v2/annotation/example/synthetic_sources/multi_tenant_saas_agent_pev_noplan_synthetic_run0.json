@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "timestamp": "2026-01-01T00:02:00+00:00",
+ "approach": "agent_pev_noplan",
+ "model": "synthetic-model",
+ "architecture": "multi_tenant_saas",
+ "run_index": 0,
+ "code": {
+  "commit": "0000000000000000000000000000000000000003",
+  "dirty": false
+ },
+ "num_predictions": 5,
+ "predictions": [
+  {
+   "id": "agent_pev_noplan-threat-0",
+   "target": "api",
+   "target_kind": "component",
+   "category": "denial_of_service",
+   "description": "SYNTHETIC: no request limits.",
+   "mitigation": "SYNTHETIC mitigation 0",
+   "key": "api:denial_of_service"
+  },
+  {
+   "id": "agent_pev_noplan-threat-1",
+   "target": "object_store",
+   "target_kind": "component",
+   "category": "tampering",
+   "description": "SYNTHETIC: files can be overwritten.",
+   "mitigation": "SYNTHETIC mitigation 1",
+   "key": "object_store:tampering"
+  },
+  {
+   "id": "agent_pev_noplan-threat-2",
+   "target": "document_service",
+   "target_kind": "component",
+   "category": "information_disclosure",
+   "description": "SYNTHETIC: documents served without ownership check.",
+   "mitigation": "SYNTHETIC mitigation 2",
+   "key": "document_service:information_disclosure"
+  },
+  {
+   "id": "agent_pev_noplan-threat-3",
+   "target": "shared_db",
+   "target_kind": "component",
+   "category": "tampering",
+   "description": "SYNTHETIC: rows changed across tenants.",
+   "mitigation": "SYNTHETIC mitigation 3",
+   "key": "shared_db:tampering"
+  },
+  {
+   "id": "agent_pev_noplan-threat-4",
+   "target": "api_to_db",
+   "target_kind": "data_flow",
+   "category": "information_disclosure",
+   "description": "SYNTHETIC: unéxpected ünicode text – kept as is.",
+   "mitigation": "SYNTHETIC mitigation 4",
+   "key": "api_to_db:information_disclosure"
+  }
+ ]
+}

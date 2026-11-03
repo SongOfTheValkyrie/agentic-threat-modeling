@@ -1,0 +1,39 @@
+{
+ "schema": "v2-annotation-export",
+ "schema_version": 1,
+ "gt_version": "V2.0",
+ "seed": 20261103,
+ "order_rule": "within each architecture, rows are sorted ascending by sha256 of the text '<seed>:<prediction identifier>'",
+ "columns": [
+  "pred_uid",
+  "architecture",
+  "target",
+  "target_kind",
+  "category",
+  "description",
+  "mitigation",
+  "label",
+  "unsure",
+  "note"
+ ],
+ "total_rows": 14,
+ "sheets": {
+  "multi_tenant_saas": {
+   "file": "annotation_multi_tenant_saas.csv",
+   "rows": 14,
+   "sha256": "03039588e3ccfca3cb4251cd083c45643be1bc519eb4d66b9d40a1f7608dd003",
+   "allowed_labels": [
+    "MTS-01",
+    "MTS-02",
+    "MTS-03",
+    "MTS-04",
+    "MTS-05",
+    "MTS-06",
+    "valid_additional",
+    "unsupported",
+    "pending_review"
+   ]
+  }
+ },
+ "mapping_sha256": "4f2cc2261e9564cbbb36b2701768526b2a4a483a1371fab92428c59546c86cc8"
+}

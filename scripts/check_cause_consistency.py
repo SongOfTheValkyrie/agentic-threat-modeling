@@ -39,7 +39,12 @@ STRIDE = {
     "denial_of_service", "elevation_of_privilege",
 }
 MAX_CATEGORIES = 2
-NON_CAUSE_LABELS = {"none", "unsure", "new_cause_proposed"}
+# Labels that are no cause. ``unsupported``, ``pending_review`` and ``valid_additional`` are the
+# annotation sheet's own labels (V2_SPEC.md 7.1); ``none``, ``unsure`` and
+# ``new_cause_proposed`` are the earlier names, still accepted. None of them finds a cause.
+UNSUPPORTED_LABELS = {"none", "unsupported"}
+PENDING_LABELS = {"unsure", "new_cause_proposed", "pending_review"}
+NON_CAUSE_LABELS = UNSUPPORTED_LABELS | PENDING_LABELS | {"valid_additional"}
 
 
 def load_drafts(directory: Path = LISTS_DIR) -> dict[str, dict]:
@@ -322,11 +327,12 @@ def coarse_scores(
 def cause_claim_counts(draft: dict, labels: list[str]) -> dict:
     """Claim counts behind cause precision (V2_SPEC section 8), review not yet applied.
 
-    ``mapped`` counts distinct causes, control gaps included (D23). Each ``none`` is
-    an unsupported claim. ``unsure`` and ``new_cause_proposed`` are pending. A
-    ``new_cause_proposed`` prediction counts as its own claim here; collapsing
-    predictions that name the same candidate needs the annotation text and belongs
-    to the scorer.
+    ``mapped`` counts distinct causes, control gaps included (D23). Each
+    ``unsupported`` (or ``none``) prediction is an unsupported claim, each
+    ``pending_review`` (or ``unsure``, ``new_cause_proposed``) is pending, and each
+    ``valid_additional`` counts as correct for precision (V2_SPEC.md section 8). The
+    last three count one claim per prediction here; collapsing predictions that name
+    the same candidate needs the annotation notes and belongs to the scorer.
     """
     sets = derived_recall_sets(draft)
     valid = set(sets["security_control_gap_recall"])
@@ -334,16 +340,19 @@ def cause_claim_counts(draft: dict, labels: list[str]) -> dict:
     if unknown:
         raise ValueError(f"labels that are no cause of {draft['architecture_id']}: {unknown}")
     mapped = {label for label in labels if label in valid}
-    pending = sum(1 for label in labels if label in {"unsure", "new_cause_proposed"})
-    unsupported = sum(1 for label in labels if label == "none")
-    total = len(mapped) + pending + unsupported
+    pending = sum(1 for label in labels if label in PENDING_LABELS)
+    unsupported = sum(1 for label in labels if label in UNSUPPORTED_LABELS)
+    valid_additional = sum(1 for label in labels if label == "valid_additional")
+    correct = len(mapped) + valid_additional
+    total = correct + pending + unsupported
     return {
         "mapped": len(mapped),
         "mapped_control_gaps": sorted(mapped & control_gap_refs(draft)),
+        "valid_additional": valid_additional,
         "pending_review": pending,
         "unsupported": unsupported,
-        "precision_lower": len(mapped) / total if total else 0.0,
-        "precision_upper": (len(mapped) + pending) / total if total else 0.0,
+        "precision_lower": correct / total if total else 0.0,
+        "precision_upper": (correct + pending) / total if total else 0.0,
     }
 
 

@@ -1,0 +1,60 @@
+{
+ "schema": "v2-annotation-export",
+ "schema_version": 1,
+ "gt_version": "V2.0",
+ "seed": 20261103,
+ "order_rule": "within each architecture, rows are sorted ascending by sha256 of the text '<seed>:<prediction identifier>'",
+ "columns": [
+  "pred_uid",
+  "architecture",
+  "target",
+  "target_kind",
+  "category",
+  "description",
+  "mitigation",
+  "label",
+  "unsure",
+  "note"
+ ],
+ "total_rows": 123,
+ "sheets": {
+  "cloud_ingest_pipeline": {
+   "file": "annotation_cloud_ingest_pipeline.csv",
+   "rows": 63,
+   "sha256": "9510928dcc8f93e42b465517aa83a3d317d82739ea0642955e27ea9e83f9a962",
+   "allowed_labels": [
+    "CIP-01",
+    "CIP-02",
+    "CIP-03",
+    "CIP-04",
+    "CIP-05",
+    "CIP-06",
+    "CIP-07",
+    "CIP-08",
+    "CIP-09",
+    "CIP-10",
+    "CIP-11",
+    "valid_additional",
+    "unsupported",
+    "pending_review"
+   ]
+  },
+  "multi_tenant_saas": {
+   "file": "annotation_multi_tenant_saas.csv",
+   "rows": 60,
+   "sha256": "30eea18ec30c05da7bcfead396d387934ece318d59e5a6262f4ca8489331596a",
+   "allowed_labels": [
+    "MTS-01",
+    "MTS-02",
+    "MTS-03",
+    "MTS-04",
+    "MTS-05",
+    "MTS-06",
+    "valid_additional",
+    "unsupported",
+    "pending_review"
+   ]
+  }
+ },
+ "mapping_sha256": "109ee674d46580314a2f900c14a5d2ccc5efe3bed6261efb9a52b52e0c407a72"
+}
