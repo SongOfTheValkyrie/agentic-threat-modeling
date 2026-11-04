@@ -35,6 +35,7 @@ htmlcov/
 
 # Benchmark run results (local measurements, not versioned)
 results/
+ablation_runs/
 
 # Local run logs (tee output from sweep scripts)
 *_run.log

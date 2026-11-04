@@ -152,62 +152,192 @@ prompt bug — the same model handles Plan/Explore/Verify JSON fine. A
 tool-calling-tuned model is the natural next comparison, changing only
 `OLLAMA_MODEL`.
 
-## 2026-10-25 — Why PEV loses to RAG (preliminary)
+## 2026-10-25 — Four-way PEV ablation (V1 scoring)
 
-Two causes, both reducing detection, investigated with the threat-level keys
-(`matched_keys` / `missed_keys` from the run log; `dropped_keys` from traces).
-**Preliminary:** single runs (temperature 0); to be confirmed by the repeated
-ablation below.
+**Evaluation basis: V1.** Everything in this section is scored with the V1 rule
+`(target, category)` (frozen under tag `v1-benchmark`, see `frozen/v1/MANIFEST.md`).
+It says nothing about whether a matched key states the right *cause*. The V2
+root-cause evaluation (`V2_SPEC.md`) is **not finished**: gate G3 has not passed
+and no comparative V2 result of real runs exists. V1 and V2 figures are therefore
+never mixed in this log.
 
-**Cause 1 — the Plan phase narrows the STRIDE search space (main cause).**
-`agent_pev_noplan` beats `agent_pev` on F1 on all five dev architectures, and on
-four of five it finds *more* true positives:
+**Data.** One sweep on the five development architectures, `RUNS=5`, model
+`llama3.1:8b`, `temperature=0`. 125 rows in `results/results.jsonl` (timestamps
+2026-10-25 20:10 to 23:58): 25 per approach, n=5 in every
+(approach, architecture) cell. Rows written on 2026-11-03 in the same file belong
+to the separate V2 capture and are excluded here.
 
-| Architecture | PEV F1 (TP) | NoPlan F1 (TP) |
+| Config | Plan | Explore | Verify | env | label |
+|---|---|---|---|---|---|
+| PEV | yes | yes | yes | `AGENT_PEV=1` | `agent_pev` |
+| NoPlan | no | yes | yes | `AGENT_PEV_NOPLAN=1` | `agent_pev_noplan` |
+| NoVerify | yes | yes | no | `AGENT_PEV_NOVERIFY=1` | `agent_pev_noverify` |
+| ExploreOnly | no | yes | no | `AGENT_PEV_EXPLOREONLY=1` | `agent_pev_noplan_noverify` |
+
+### Results (V1, mean of 5 runs)
+
+F1, and mean TP/FP in brackets:
+
+| Architecture | PEV | NoPlan | NoVerify | ExploreOnly |
+|---|---|---|---|---|
+| simple_web_api | 0.571 (4/2) | 0.714 (5/1) | 0.471 (4/5) | 0.714 (5/1) |
+| webapp_with_auth | 0.474 (9/10) | 0.513 (10/10) | 0.500 (11/14) | 0.476 (10/13) |
+| microservices_async | 0.483 (14/19) | 0.517 (15/18) | 0.418 (14/28) | 0.448 (15/27) |
+| cloud_ingest_pipeline | 0.452 (7/11) | 0.485 (8/12) | 0.513 (10/16) | 0.487 (9/15) |
+| multi_tenant_saas | 0.516 (8/11) | 0.571 (8/8) | 0.526 (10/16) | 0.545 (9/12) |
+| **Sum TP / FP** | **42 / 53** | **46 / 49** | **49 / 79** | **48 / 68** |
+
+Cost per architecture run (mean over all 25 runs): PEV 35 LLM calls / 194 s,
+NoPlan 22 / 143 s, NoVerify 24 / 122 s, ExploreOnly 11 / 89 s.
+
+### What the data supports
+
+1. **NoPlan has the higher F1 than PEV on all five development architectures**
+   (differences +0.033 to +0.143; the largest, on `simple_web_api`, is one true
+   positive and one false positive). The effect is small in absolute terms: +1 TP
+   on four architectures and +0 on `multi_tenant_saas`, where the gain comes from
+   fewer false positives (8 instead of 11). Summed, 46 vs. 42 TP.
+2. **NoPlan is not a superset of PEV.** It matches 7 keys PEV does not
+   (`tampering` x4, `denial_of_service`, `repudiation`, `elevation_of_privilege`)
+   and misses 3 keys PEV matches (`spoofing`, `repudiation`,
+   `information_disclosure`). The earlier reading "NoPlan finds the categories PEV
+   overlooks" holds as a tendency toward `tampering`, not as a rule.
+3. **Verify trades precision for recall, with no clear net effect on F1.** Removing
+   it raises false positives sharply (53 to 79 for NoVerify, 49 to 68 for
+   ExploreOnly relative to NoPlan) and also raises true positives (49 and 48). F1
+   against PEV is higher on three of five architectures for NoVerify and lower on
+   two. No monotone "Verify helps F1" claim is supported.
+4. **Cost.** NoPlan needs 22 instead of 35 LLM calls (37 % fewer) at a higher F1.
+   ExploreOnly needs 11 calls with F1 comparable to PEV (higher on four of five
+   architectures, lower on `microservices_async`).
+5. **Against Fixed RAG.** RAG F1 on the same architectures is 0.714 / 0.600 /
+   0.582 / 0.562 / 0.625, so RAG is **at least as high as NoPlan on all five**
+   (tied on `simple_web_api`, ahead by 0.054 to 0.087 elsewhere) and ahead of PEV
+   on all five. RAG needs 11 calls. Evidence limit: the RAG rows exist as repeated
+   single runs (`run_index=0`, two sessions, identical values); the raw rows of the
+   original RUNS=5 baseline sweep are no longer in the repository (only the
+   figures quoted in `RESULTS.md`). RAG code, knowledge base and benchmark files
+   are unchanged since that sweep (`git log` on `src/RAG`, `data/`, `benchmark/`).
+
+### Limits of this evidence
+
+- **±0.00 is not a sample.** In all 25 cells TP, FP, FN and F1 have standard
+  deviation 0 and the `matched_keys` are identical across the five runs. This is
+  reproducibility of one deterministic path, not five independent samples. There is
+  no variance estimate and no significance statement. V2_SPEC.md G1 states that
+  `temperature=0` does not guarantee bit-identical output; the identity observed
+  here is an observation, not a guarantee.
+- **V1 only.** A matched key can state a different cause than the ground truth,
+  and a correct finding with another STRIDE label counts as an error. Differences
+  of one true positive are within what this scoring can distinguish from label
+  noise. The V2 evaluation exists to answer exactly that and is not finished.
+- **Development set, ground truth unreviewed by a second person.** The ground
+  truth was AI-drafted; V2 freezes cause lists for two architectures only.
+- **Verify loss is thinly evidenced.** The only threat-level check of what Verify
+  dropped is the earlier single `multi_tenant_saas` run: 7 candidates dropped, 2 of
+  them in the ground truth (`document_service:elevation_of_privilege`,
+  `object_store:repudiation`). Traces with `dropped_keys` exist for more
+  architectures, but they have not been compared with the ground truth. The
+  statement "Verify drops some correct threats" is therefore a one-architecture
+  observation, not a result.
+- **Plan effect is not isolated.** `noplan` also removes prioritization and
+  deepening. Deepening was neutral in the 2026-10-20 comparison (n=1, one
+  architecture), so the plan hypotheses are the remaining candidate, but no
+  experiment removes only the hypotheses.
+
+### Status of the explanation
+
+"The plan hypotheses narrow the STRIDE search space" is a **hypothesis consistent
+with** the table, not a demonstrated mechanism. Finding 2 shows the effect is
+mixed. It stays a working hypothesis until the V2 evaluation or a
+hypotheses-only ablation tests it.
+
+## 2026-11-04 — V1 results versus the unfinished V2 evaluation
+
+| | V1 results (this log, `RESULTS.md`) | V2 root-cause evaluation |
 |---|---|---|
-| simple_web_api | 0.57 (4) | 0.71 (5) |
-| webapp_with_auth | 0.47 (9) | 0.51 (10) |
-| microservices_async | 0.48 (14) | 0.52 (15) |
-| cloud_ingest_pipeline | 0.45 (7) | 0.48 (8) |
-| multi_tenant_saas | 0.52 (8) | 0.57 (8, fewer FP) |
+| Scoring unit | `(target, category)` | root cause (`V2_SPEC.md` D1) |
+| Ground truth | V1 ground truth, unchanged | GT V2.0, frozen for `multi_tenant_saas` and `cloud_ingest_pipeline` only |
+| Status | complete, frozen under tag `v1-benchmark` | annotation protocol, claim scorer, review ledger and gate G3 are implemented and tested on synthetic data; **no real annotation has been scored, G3 has not passed, no comparative result exists** (`V2_SPEC.md`, section 12 and change log) |
+| May be cited as | V1 findings, with the limits above | nothing yet |
 
-The extra threats NoPlan recovers are systematically `tampering`,
-`repudiation`, `denial_of_service`, `elevation_of_privilege` — the categories a
-hypothesis-focused prompt overlooks. The plan hypotheses steer Explore toward
-the suspected (mostly confidentiality/access) threat and suppress the rest of
-STRIDE. RAG's plain "list all STRIDE threats for this element" covers broader.
-(Caveat: `noplan` also removes prioritization and deepening; but deepening was
-shown neutral, so the hypothesis injection is the remaining active difference.)
+The V2 capture (123 predictions, commit `627a42e`) and the V2 annotation files are
+unchanged by this entry. Every claim in the sections above is a V1 claim. Whether
+the V1 ranking (RAG above NoPlan above PEV) survives cause-level scoring is an open
+question that this log does not answer.
 
-**Cause 2 — Verify discards some correct threats (secondary).** On
-`multi_tenant_saas`, Verify dropped 7 candidates; 2 were in the ground truth and
-wrongly removed (`document_service:elevation_of_privilege`,
-`object_store:repudiation`). The other 5 were genuine false positives correctly
-filtered. So Verify mostly removes noise but costs a little recall — and one of
-the two it dropped is exactly a threat NoPlan recovers, so the two causes
-compound.
+## Next
 
-Net picture: PEV's matched threats are almost a strict subset of RAG's. The
-agent machinery removes detections at both ends — Plan narrows the input,
-Verify trims the output — which is why more structure scored lower than fixed
-RAG here.
+1. **Diagnostic model comparison** (below): one `llama3.1:8b` versus
+   `qwen2.5:7b` run on `multi_tenant_saas`, unchanged prompts and agents, aimed at
+   situation-dependent tool choice. A single run is a diagnostic hint only.
+2. V2: continue with the annotation and gate G3 as specified; no agent
+   architecture work and no holdout evaluation before that.
 
-### Next
+## Diagnostic: is situation-dependent tool choice limited by the model?
 
-1. **Repeated ablation (several runs) to confirm the above**, four
-   configurations on the dev set:
+**Status: planned, not run.** Written before any Qwen output exists, so the
+reading of the outcome cannot be adapted to the result.
 
-   | Config | Plan | Explore | Verify | env |
-   |---|---|---|---|---|
-   | PEV | yes | yes | yes | `AGENT_PEV=1` |
-   | NoPlan | no | yes | yes | `AGENT_PEV_NOPLAN=1` |
-   | NoVerify | yes | yes | no | `AGENT_PEV_NOVERIFY=1` |
-   | ExploreOnly | no | yes | no | `AGENT_PEV_EXPLOREONLY=1` |
+**Why.** On `llama3.1:8b` the adaptive-deepening decision followed the prompt
+wording instead of the element (always three searches under the baseline prompt,
+always `done` under the adaptive prompt; 2026-10-20, n=1). Two explanations are
+open: (a) a capability limit of this model for adaptive tool use, (b) the prompt
+design or the deepening step itself. A different model on identical code and
+prompts can speak to (a). It cannot settle it.
 
-2. Optional: repeat with a tool-calling-tuned model (`OLLAMA_MODEL=qwen2.5:7b`)
-   to test the model-capability hypothesis for adaptive tool use.
-3. Freeze the implementations and run the final comparison on the untouched
-   holdout set (`cicd_pipeline`, `mobile_banking`).
+**Scope.** Primary research question: does agentic exploration improve
+automated threat modeling compared with simpler RAG approaches, and at what
+computational cost? This diagnostic is a sub-question about the model, not a new
+agent design.
+
+**Setup (nothing changes except the model).**
+
+| Item | Value |
+|---|---|
+| Architecture | `multi_tenant_saas` (development set) |
+| Models | `llama3.1:8b` (existing reference rows) and `qwen2.5:7b` (new) |
+| Approaches | `agent_pev` and `agent_pev_adaptivedeepen` (the two deepening prompts), `RUNS=1` |
+| Prompts, agents, retriever, knowledge base | unchanged |
+| Trace | `TRACE=1`, so `parsed_action` / `termination_reason` of every deepening step is stored |
+| Isolation | `scripts/ollama_smoke_test.py` sandbox (temporary directory outside the repository, controlled environment, checksum guard on `results/` and `frozen/`) |
+| Holdout | not touched |
+
+**Observations that would support a model-capability limit** (set in advance):
+
+- Qwen's deepening choice also follows the prompt rather than the element: the
+  same termination under one prompt for all four prioritized elements (all
+  `budget_exhausted`, or all `done`), identical to llama's pattern.
+- Same degenerate tool mix: only `search_knowledge`, no `get_connections`.
+- Repeated identical queries within an element.
+- Invalid JSON or unknown tools at a rate clearly above llama's. Reference
+  from the 2026-10-25 ablation window: all 200 deepening steps of the 50
+  `agent_pev` traces ended `budget_exhausted`; none ended `invalid_json`,
+  `unknown_tool`, `tool_error` or `done`.
+
+**Observations that would speak against it** (the limit is then not simply the
+model):
+
+- Element-dependent choices under one prompt: different `termination_reason`s or
+  different tools for different prioritized elements of the same run.
+- `get_connections` chosen for elements where the relationship is the open
+  question (for example `shared_db`, `document_service`).
+- `done` early on some elements and further tool calls on others, without
+  repeated identical queries.
+
+**Inconclusive outcomes** (stated so they are not over-read):
+
+- Qwen fails to follow the JSON format at all: a format-adherence difference, not
+  evidence about adaptive decisions.
+- Qwen differs from llama but is still prompt-driven in the same way: no support
+  for either reading.
+- Mixed pattern: report as mixed.
+
+**How to read one run.** `RUNS=1` on one architecture with four prioritized
+elements is a diagnostic hint. It can show the pattern; it cannot establish a
+rate. `temperature=0` does not guarantee reproducibility (`V2_SPEC.md` G1), so a
+second run could differ. Detection quality (F1, matched keys) of the Qwen run is
+reported for completeness but is **not** used to rank models.
 
 ## How to run the measurements
 
