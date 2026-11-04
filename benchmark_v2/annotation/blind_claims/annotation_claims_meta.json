@@ -1,0 +1,77 @@
+{
+ "schema": "v2-annotation-claim-export",
+ "schema_version": 2,
+ "protocol_version": "1.1",
+ "gt_version": "V2.0",
+ "seed": 20261103,
+ "order_rule": "within each architecture, rows are sorted ascending by sha256 of the text '<seed>:<prediction identifier>'",
+ "columns": [
+  "pred_uid",
+  "architecture",
+  "target",
+  "target_kind",
+  "category",
+  "description",
+  "mitigation",
+  "claim_no",
+  "claim_label",
+  "reason_code",
+  "claim_text",
+  "evidence_refs",
+  "candidate_id",
+  "plausible_causes",
+  "rationale",
+  "unsure",
+  "target_judgement",
+  "stride_judgement"
+ ],
+ "reason_codes": [
+  "explicit_contradiction",
+  "insufficient_evidence",
+  "generic_claim",
+  "wrong_mechanism",
+  "out_of_scope",
+  "other"
+ ],
+ "total_predictions": 123,
+ "sheets": {
+  "cloud_ingest_pipeline": {
+   "file": "annotation_claims_cloud_ingest_pipeline.csv",
+   "predictions": 63,
+   "sha256": "f38f0db763014256759257525d04b7e7f79a7ca8f6d9e45c62e96556fcec06fc",
+   "allowed_labels": [
+    "CIP-01",
+    "CIP-02",
+    "CIP-03",
+    "CIP-04",
+    "CIP-05",
+    "CIP-06",
+    "CIP-07",
+    "CIP-08",
+    "CIP-09",
+    "CIP-10",
+    "CIP-11",
+    "valid_additional",
+    "unsupported",
+    "pending_review"
+   ]
+  },
+  "multi_tenant_saas": {
+   "file": "annotation_claims_multi_tenant_saas.csv",
+   "predictions": 60,
+   "sha256": "cad0c3f499a4350042d85febfb7bba5ccb4c5aceadcc60e9ac913b2ace85f6fa",
+   "allowed_labels": [
+    "MTS-01",
+    "MTS-02",
+    "MTS-03",
+    "MTS-04",
+    "MTS-05",
+    "MTS-06",
+    "valid_additional",
+    "unsupported",
+    "pending_review"
+   ]
+  }
+ },
+ "mapping_sha256": "109ee674d46580314a2f900c14a5d2ccc5efe3bed6261efb9a52b52e0c407a72"
+}

@@ -1,5 +1,9 @@
 # Blind annotation export: technical report
 
+> Update 2026-11-03: new annotation uses the claim-level sheets in `benchmark_v2/annotation/blind_claims/`
+> (same identifiers, same order, same mapping; `CLAIM_SCORING.md`). This report describes the first
+> export with one label per prediction, which stays as the record of the first sheet.
+
 Date: 2026-11-03. Scope: the 123 stored predictions of the V2 capture run (commit
 `627a42e`, `llama3.1:8b`, temperature 0, one run each). No label has been assigned.
 No stored prediction and no cause list was changed.

@@ -55,11 +55,19 @@ prompts, model, knowledge base, retriever, or the architecture JSON files.
 | D22 | CIP-04 difficulty is `easy`. Granularity splits (MTS-01/MTS-02, CIP-02/CIP-03, CIP-10/CIP-11), the exclusion of cause chains from the confirmed list, and the scope rules stay as drafted. The chains are preserved for a separate later analysis. The empty `hard` class is accepted and documented as a limitation. Policy P1 (exposure alone is not evidence) is confirmed. MTS-04 stays one cause. | owner, G2 |
 | D23 | Control-gap claims (CIP-04, CIP-11). (1) With a valid mapping they count as `mapped` findings in cause precision. (2) In the adjusted V2 `(target, category)` metric, predictions that the annotation maps to CIP-04 or CIP-11 are excluded completely, neither TP nor FP, and the number of excluded predictions is reported. (3) Unmatched and unsupported predictions are never excluded wholesale; they stay in the precision assessment. (4) The original V1 key score is reported unchanged next to it. The adjusted V2 coarse score is a different metric and is never presented as identical to V1. | owner, G2 |
 
-| D24 | The annotation sheet has one label per prediction: a cause ID of the architecture, `valid_additional`, `unsupported`, or `pending_review`. The export is blind (no approach, run, file or trace information), randomized within each architecture across all approaches with a fixed seed, and keyed by stable opaque prediction identifiers. The mapping to the original prediction, run and approach is kept apart from the blind export. No label is assigned automatically. | owner |
-| D25 *(proposed)* | The sheet has a separate column `unsure` (`yes` or empty) next to the label, so that D13 (κ over items where both annotations are not `unsure`; share of `unsure` at most 10 %) stays computable. | assistant, not yet decided |
+| D24 | *(superseded for new sheets by D27)* The first annotation sheet has one label per prediction: a cause ID of the architecture, `valid_additional`, `unsupported`, or `pending_review`. The export is blind (no approach, run, file or trace information), randomized within each architecture across all approaches with a fixed seed, and keyed by stable opaque prediction identifiers. The mapping to the original prediction, run and approach is kept apart from the blind export. No label is assigned automatically. | owner |
+| D25 | The sheet had a separate column `unsure` (`yes` or empty). Superseded by the claim-level `unsure` of D27 and its use in D28, D29 and D31. | owner (accepted with P3) |
+| D26 | Annotation protocol 1.0 (`benchmark_v2/annotation/PROTOCOL.md`): rules R1 to R12 and the root-cause definition are adopted and versioned. Twelve borderline cases of `multi_tenant_saas` are recorded as development cases (`dev_cases_protocol_v1.json`). They are not an independent validation sample and are excluded from the repeat annotation. Case 8 is `unsupported` (owner decision after an architecture check), case 10 is `pending_review` and still open. | owner |
+| D27 | Annotation is claim-level (replaces D24 for new sheets). A prediction has one or more claims (rules R7, R9); a claim has one label (a cause ID of the architecture, `valid_additional`, `unsupported` or `pending_review`), an `unsure` flag, optional `plausible_causes` that must be justified by rationale and evidence paths, `evidence_refs`, `candidate_id`, `rationale`. Every `unsupported` claim has a standard `reason_code` (`explicit_contradiction`, `insufficient_evidence`, `generic_claim`, `wrong_mechanism`, `out_of_scope`, `other`). Reasoning is mechanical: a standard match needs no rationale; deviations, overrides, several claims and uncertainty do. | owner (P1, P6, Q1, Q4) |
+| D28 | Two precisions with two names, never reported as "precision" alone: **Claim Precision (CP)** on individual claims without deduplication, and **Unique-Finding Precision (UFP)** on deduplicated findings. UFP is the headline, CP is reported next to it. Unsupported claims are never deduplicated. Pending claims stay in the denominator, and unsure claims are not absorbed in precision. Both are reported as lower and upper bounds while claims are pending. | owner (P2, P7, Q3, R-a) |
+| D29 | An `unsure` claim is pending. Cause recall has a lower bound (sure claims) and an upper bound that adds only justified plausible causes of pending claims by maximum matching, so a cause counts once and a claim supports at most one cause. Absorption exists in the recall only. | owner (P3, Q2, Q3) |
+| D30 | The adjusted V2 key score removes sure control-gap claims at claim level before keys are formed; only predictions with a remaining claim form a key. The V1 evaluator is called unchanged. This makes D23 exact for several claims. | owner (P5) |
+| D31 | Reliability: Cohen's κ on (prediction, label) pairs over a label universe fixed by the architecture, items unsure in either pass excluded and reported; the threshold κ ≥ 0.8 refers to this κ. The exact agreement of the label sets is reported next to it. | owner (P4, R-b) |
+| D32 | Repeat sample: stratified (pending or unsure, sure cause, no cause), seeded, at least 20 items per phase, at least 24 hours after the first pass, without the twelve development cases. | owner (P8) |
 
 Items marked *(proposed)* would be defaults that have not been explicitly
-decided. This version contains one: D25. It does not affect the cause lists.
+decided. This version contains none. The normative definitions of D27 to D32 are in
+`benchmark_v2/annotation/CLAIM_SCORING.md`. Case 10 of the development cases is still open.
 
 ## 3. Ground-truth schema (V2)
 
@@ -178,19 +186,20 @@ by it. Identifiers must be unique across the files of one export.
 
 ### 7.1 Reference annotation
 
-Each prediction receives exactly one label (D24): a **cause ID** of the
-architecture, `valid_additional`, `unsupported`, or `pending_review`. Free text,
-for example a short description of a proposed new cause, goes into a separate
-`note` column. The column `unsure` (`yes` or empty) marks an annotation that the
-annotator is not sure about (D25, proposed). Annotation order is randomized and the
-approach name is hidden. Labels are keyed by the stable prediction identifier
-(section 6).
+The annotation is claim-level (D27). The first export (`benchmark_v2/annotation/blind/`, one label
+per prediction, D24) stays as the record of the first sheet; new annotation uses the claim sheets in
+`benchmark_v2/annotation/blind_claims/`, with the same identifiers and the same order. A
+prediction has one or more claims; each claim has exactly one label: a **cause ID** of the
+architecture, `valid_additional`, `unsupported` (with a `reason_code`), or `pending_review`, and
+an `unsure` flag. Annotation order is randomized and the approach name is hidden. Labels are keyed
+by the stable prediction identifier (section 6). Columns, validation rules V1 to V12 and the
+migration of a filled first sheet are defined in `benchmark_v2/annotation/CLAIM_SCORING.md`.
 
 The earlier names map as follows: `none` is `unsupported`; `unsure` and
-`new_cause_proposed` are `pending_review`, with `unsure` kept as its own flag for D13.
+`new_cause_proposed` are `pending_review`, with `unsure` as the claim's own flag.
 Chain candidates, boundary refs and unsupported refs are not labels.
 
-**Blind export.** `scripts/export_annotation_sheet.py` writes one sheet per
+**Blind export.** `scripts/export_annotation_sheet.py` wrote one sheet per
 architecture to `benchmark_v2/annotation/blind/`. Within an architecture, rows from
 all approaches are ordered by `sha256("<seed>:<prediction identifier>")` with the fixed
 seed 20261103, which makes the order reproducible and independent of the input order.
@@ -198,7 +207,8 @@ The sheet holds the stored `target`, `target_kind`, `category`, `description` an
 `mitigation` unchanged and no approach, model, run, file, trace, model threat id or
 commit. The private mapping (`annotation_private/mapping.json`, git-ignored) joins each
 identifier to file, index, run and approach and is not handed to the annotator. The
-technical report is `benchmark_v2/annotation/EXPORT_REPORT.md`.
+technical report is `benchmark_v2/annotation/EXPORT_REPORT.md`. `scripts/claim_annotation.py`
+exports and checks the claim sheets and runs the repeat sample and the agreement.
 
 ### 7.2 Outcomes per prediction
 
@@ -234,6 +244,9 @@ earns no extra credit and removing duplicates costs nothing.
 - `new_cause_proposed` predictions that the annotator assigns to the same
   candidate cause collapse like mapped ones.
 - Predictions labelled `none` or `unsure` are individual claims.
+- For the claim-level sheets the collapse rules are those of `CLAIM_SCORING.md` sections 4, 5
+  and 7: Claim Precision collapses nothing, Unique-Finding Precision collapses findings but never
+  unsupported claims, recall counts a cause once.
 
 ### 7.4 Metrics
 
@@ -241,7 +254,7 @@ earns no extra credit and removing duplicates costs nothing.
   STRIDE mapping (15 in the current drafts: 6 for `multi_tenant_saas`, 9 for
   `cloud_ingest_pipeline`). **Security Control Gap Recall** = all found causes /
   all causes (17: 6 and 11). Both are computed from the same stored predictions
-  and the same one-label-per-prediction annotation (section 7.1): the set of
+  and the same claim annotation (section 7.1): the set of
   found causes is read once, and each recall is a different denominator over it,
   so Security Control Gap Recall counts every cause found in Threat Cause Recall
   plus the control gaps. Both are reported overall, per architecture, and per
@@ -253,16 +266,17 @@ earns no extra credit and removing duplicates costs nothing.
   such findings are promoted into the ground truth (V2.1), the denominator and
   the set of found causes change. Recall values from different ground-truth
   versions are then not comparable, and all approaches are re-scored.
-- **Cause precision**: bounds only until review is complete (section 8).
+- **Claim Precision** and **Unique-Finding Precision** (D28): bounds only until review is complete
+  (section 8). The word "precision" alone is not used in reports.
 - **Coarse metrics**, two different ones on the same stored predictions, always
   labelled:
   - *V1 key score*: the unchanged V1 evaluator and V1 ground truth on all
     predictions.
   - *Adjusted V2 coarse score*: the same evaluator function on the V2
-    `(target, category)` keys of the STRIDE-mapped causes (17 distinct keys), after
-    excluding the predictions the annotation mapped to CIP-04 or CIP-11 (D23).
-    Predictions labelled `none`, `unsure`, `new_cause_proposed`, or any other
-    cause stay in. The number of excluded predictions is reported next to the
+    `(target, category)` keys of the STRIDE-mapped causes (17 distinct keys). Sure
+    CIP-04 and CIP-11 claims are removed at claim level first, then keys are formed only
+    from predictions with a remaining claim (D23, D30). Predictions with unsupported,
+    pending, unsure or other-cause claims stay in. The number of excluded predictions is reported next to the
     score. This score is not the V1 score and is not described as such.
 - **Category agreement** among cause-matched predictions, target agreement, and
   the count of "found but mislabeled". This is the separate evaluation of the
@@ -289,17 +303,19 @@ Statuses of a claim: `mapped` (to a ground-truth cause), `pending_review`,
   denominator does not change. Promoting a finding into the ground truth happens
   only in a new version (V2.1) and requires re-scoring all approaches.
 
-Let `G` = claims mapped to ground-truth causes, `V` = `valid_additional`,
-`P` = `pending_review`, `U` = `unsupported`.
+The counts and bounds below are the **Unique-Finding Precision** (D28), with `G` = distinct sure
+causes, `V` = deduplicated `valid_additional` findings, `P` = deduplicated pending findings
+(an `unsure` claim is pending), `U` = unsupported claims. The exact definitions, the
+**Claim Precision** on individual claims, and worked examples are in `CLAIM_SCORING.md`.
 
 - **Lower bound** = (G + V) / (G + V + P + U)
 - **Upper bound** = (G + V + P) / (G + V + P + U)
 - F1 bounds follow from these, because F1 increases monotonically with
   precision at fixed recall.
 
-Claims mapped to a control-gap cause belong to `G` (D23). One precision
-definition is used; there is no threat-only precision. Unmatched (`none`) and
-unsupported claims stay in the denominator; they are never excluded wholesale.
+Claims mapped to a control-gap cause belong to `G` (D23). There is no threat-only
+precision. Unmatched and unsupported claims stay in the denominator; they are never excluded
+wholesale.
 
 No single precision or F1 value is published while any `pending_review` claim
 exists in the evaluated set. Cause recall does not depend on review.
@@ -322,9 +338,9 @@ predictions was too low; expect roughly 60 per phase.
 
 **Reported for the repeat annotation and for the grader:**
 
-- Cohen's κ for the main evaluation, computed **only over items where both
-  annotations are not `unsure`**.
-- The simple agreement rate over the same items.
+- Cohen's κ for the main evaluation, computed on (prediction, label) pairs (D31), **only over
+  items where both annotations are not `unsure`**.
+- The exact agreement of the label sets over the same items, and the pair counts behind κ.
 - The list of disagreement cases.
 - Reported separately: the items excluded from κ (count), their share of all
   items, and the list of `unsure` cases with the pass in which each occurred.
@@ -393,9 +409,10 @@ freeze.
   annotation (section 7.1) forces a choice. To be examined in the sample.
 - Whether `none` predictions with near-identical text within a run should be
   merged (section 7.3 currently counts each as its own claim).
-- The scorer, the repeat-annotation sample (D12), and the LLM-grader test. The stable
-  identifiers (section 6) and the blind annotation export (section 7.1) are
-  implemented.
+- A command-line scorer with `--scheme v1|v2` and the review ledger, and the LLM-grader
+  test. The stable identifiers, the blind exports, the claim-level metrics, the validator, the
+  migration, the repeat sample and the agreement are implemented as library functions and tools,
+  not yet run on real annotation.
 - Because the coarse key `(target, category)` is shared by several causes in
   places (for example `api:elevation_of_privilege` by MTS-01 and MTS-02) and
   some excluded entries share a key with a confirmed cause, the coarse metric
@@ -437,3 +454,11 @@ architecture file it is derived from, or to the manifest means a new version
 - 2026-11-03: Capture run done (commit 627a42e, 123 annotatable predictions). Blind
   annotation export implemented and generated; annotation label set recorded as D24,
   the `unsure` column as proposed D25.
+- 2026-11-03: Annotation protocol 1.0 adopted (D26), development cases recorded.
+  Claim-level schema proposal written, not decided.
+- 2026-11-04: Claim-level scoring approved by the owner and implemented (D27 to D32): Claim Precision and Unique-Finding
+  Precision as two metrics, recall bounds by matching, claim-level control-gap exclusion for the
+  adjusted key score, pair-level κ with exact set agreement, stratified repeat sample, reason codes
+  for unsupported claims. D24 superseded for new sheets, D25 superseded by D27. Implemented in
+  `src/evaluation/claims.py`, `src/evaluation/claim_sheet.py` and `scripts/claim_annotation.py`;
+  claim sheets generated (unlabelled). Annotation protocol 1.1.

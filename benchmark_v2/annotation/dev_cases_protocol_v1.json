@@ -1,0 +1,25 @@
+{
+  "schema": "v2-annotation-dev-cases",
+  "protocol_version": "1.0",
+  "date": "2026-11-03",
+  "architecture": "multi_tenant_saas",
+  "gt_version": "V2.0",
+  "purpose": "Development cases for the annotation protocol. They are not an independent validation sample and are excluded from the repeat annotation.",
+  "excluded_from_validation": true,
+  "cases": [
+    {"no": 1, "pred_uid": "pred-1060e8d5493edefa", "target": "shared_db", "category": "tampering", "decision": "MTS-04", "status": "decided"},
+    {"no": 2, "pred_uid": "pred-3d3f110c5b5366eb", "target": "document_service", "category": "elevation_of_privilege", "decision": "MTS-03", "status": "decided"},
+    {"no": 3, "pred_uid": "pred-7619e9af8d0b552f", "target": "admin_portal", "category": "elevation_of_privilege", "decision": "MTS-01", "status": "decided"},
+    {"no": 4, "pred_uid": "pred-96b4c0697c28ef80", "target": "object_store", "category": "information_disclosure", "decision": "unsupported", "status": "decided"},
+    {"no": 5, "pred_uid": "pred-6342bc38792ac760", "target": "object_store", "category": "information_disclosure", "decision": "unsupported", "status": "decided"},
+    {"no": 6, "pred_uid": "pred-38efea419daab4e0", "target": "api_to_document_service", "category": "information_disclosure", "decision": "unsupported", "status": "decided"},
+    {"no": 7, "pred_uid": "pred-3342120a3b3227a5", "target": "api", "category": "spoofing", "decision": "MTS-01", "status": "decided"},
+    {"no": 8, "pred_uid": "pred-90614b1a365ac22b", "target": "shared_db", "category": "elevation_of_privilege", "decision": "unsupported", "status": "decided",
+     "note": "Owner decision: the general claim of missing authorization identifies no concrete root cause. Architecture check beforehand: shared_db has no authorization statement, the named mechanism is generic (R3, R5, R6, R11). The wording is close to MTS-02, which R3 does not allow to be matched without a named mechanism."},
+    {"no": 9, "pred_uid": "pred-a70319600509a0a0", "target": "api", "category": "denial_of_service", "decision": "unsupported", "status": "decided"},
+    {"no": 10, "pred_uid": "pred-302e7be13a9f0dae", "target": "object_store", "category": "tampering", "decision": "pending_review", "status": "open",
+     "reservation": "IDOR/ownership at the object store versus MTS-03 (ownership check, stated on document_service) and MTS-05 (per-tenant prefix, stated on object_store). Not decided; no automatic assignment. Analysis in PROTOCOL.md section 5.2 and CLAIM_SCORING.md section 14: the evidence supports the mechanism of MTS-03 (R2), no statement supports a separate weakness at the store."},
+    {"no": 11, "pred_uid": "pred-3e9221b8ee512864", "target": "admin_to_api", "category": "information_disclosure", "decision": "unsupported", "status": "decided"},
+    {"no": 12, "pred_uid": "pred-71ade5264179393e", "target": "api", "category": "elevation_of_privilege", "decision": "MTS-01", "status": "decided"}
+  ]
+}

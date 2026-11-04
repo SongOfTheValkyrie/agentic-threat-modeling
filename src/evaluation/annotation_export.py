@@ -417,6 +417,23 @@ def verify_export(
     return problems, stats
 
 
+def private_values(mapping: dict) -> tuple[set[str], set[str]]:
+    """Values that identify approach, run, file or trace, and the model threat ids apart.
+
+    Model threat ids are built from target and category plus a counter, so they are checked
+    only in metadata and instructions, not against the content columns.
+    """
+    secrets: set[str] = set()
+    for entry in mapping["sources"]:
+        secrets |= {entry["approach"], entry["model"], entry["timestamp"], Path(entry["file"]).name,
+                    entry["file"]}
+        commit = (entry.get("code") or {}).get("commit")
+        if commit:
+            secrets.add(commit)
+    threat_ids = {str(link["threat_id"]) for link in mapping["predictions"].values()}
+    return {s for s in secrets if s}, threat_ids
+
+
 def blindness_problems(blind_dir: Path, mapping: dict) -> list[str]:
     """The files handed to the annotator must hold no approach, run, file or trace data.
 
@@ -425,18 +442,7 @@ def blindness_problems(blind_dir: Path, mapping: dict) -> list[str]:
     be free of the private values.
     """
     problems = []
-    # Values that identify approach, run, file or trace. Model threat ids are listed apart:
-    # they are built from target and category plus a counter, so they are checked only in
-    # the metadata and instructions, not against the content columns.
-    secrets: set[str] = set()
-    for entry in mapping["sources"]:
-        secrets |= {entry["approach"], entry["model"], entry["timestamp"], Path(entry["file"]).name,
-                    entry["file"]}
-        commit = (entry.get("code") or {}).get("commit")
-        if commit:
-            secrets.add(commit)
-    secrets = {s for s in secrets if s}
-    threat_ids = {str(link["threat_id"]) for link in mapping["predictions"].values()}
+    secrets, threat_ids = private_values(mapping)
     for name in (META_NAME, README_NAME):
         text = (blind_dir / name).read_text()
         for secret in sorted(secrets | threat_ids):
