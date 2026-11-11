@@ -268,16 +268,17 @@ question that this log does not answer.
 
 ## Next
 
-1. **Diagnostic model comparison** (below): one `llama3.1:8b` versus
-   `qwen2.5:7b` run on `multi_tenant_saas`, unchanged prompts and agents, aimed at
-   situation-dependent tool choice. A single run is a diagnostic hint only.
+1. **Diagnostic model comparison** (below): done, see "Result". Open from it:
+   whether native tool calling (which Ollama lists for Qwen) behaves differently
+   from the text-JSON format used here.
 2. V2: continue with the annotation and gate G3 as specified; no agent
    architecture work and no holdout evaluation before that.
 
 ## Diagnostic: is situation-dependent tool choice limited by the model?
 
-**Status: planned, not run.** Written before any Qwen output exists, so the
-reading of the outcome cannot be adapted to the result.
+**Status: run on 2026-11-04 and repeated on 2026-11-11 (see "Result" below).**
+Written before any Qwen output existed, so the reading of the outcome cannot be
+adapted to the result. The criteria in this section are unchanged.
 
 **Why.** On `llama3.1:8b` the adaptive-deepening decision followed the prompt
 wording instead of the element (always three searches under the baseline prompt,
@@ -338,6 +339,99 @@ elements is a diagnostic hint. It can show the pattern; it cannot establish a
 rate. `temperature=0` does not guarantee reproducibility (`V2_SPEC.md` G1), so a
 second run could differ. Detection quality (F1, matched keys) of the Qwen run is
 reported for completeness but is **not** used to rank models.
+
+### Result (run 2026-11-04, repeated 2026-11-11)
+
+**What ran.** `qwen2.5:7b` (digest `845dbda0ea48`, Q4_K_M, 4096-token context) on
+`multi_tenant_saas`, `agent_pev` and `agent_pev_adaptivedeepen`, `RUNS=1`, with the
+agents, prompts, retriever and knowledge base unchanged, through
+`scripts/run_qwen_diagnostic.sh --run` (sandbox outside the repository, checksum
+guard on `results/` and `frozen/`). Code commit `4e8e01b` with uncommitted V2
+work in the tree. Outputs: `diagnostic_runs/qwen2.5-7b_20261104T215229/` and
+`diagnostic_runs/qwen2.5-7b_20261111T215140/` (gitignored). Duration about 4
+minutes per run (135 s and 107 s of model time).
+
+**The repeat matches the first run exactly:** same plan priorities, identical
+deepening steps for every element, identical `matched_keys`, identical LLM calls
+(34 and 28), tokens (15 497 and 14 517) and retrieval calls (17 and 11). Only the
+runtime differed by 1 to 2 seconds. That is reproducibility of this one setup on
+this machine, not a rate and not a guarantee (`V2_SPEC.md` G1).
+
+**Observations against the pre-registered lists** (both runs identical):
+
+| Pre-registered observation | Qwen |
+|---|---|
+| Same termination for all prioritized elements under one prompt (supports) | Adaptive prompt: yes, 5/5 `done`, no tool call (llama: 4/4). Baseline prompt: no, 4 `tool_error` and 1 `budget_exhausted`. |
+| Only `search_knowledge`, no `get_connections` (supports) | Not met: `get_connections` was attempted for all 5 elements and succeeded once. |
+| Repeated identical queries (supports) | Met once: `shared_db` repeats `shared_db STRIDE threats`. |
+| `invalid_json` / `unknown_tool` above llama (supports) | Not met: 0 and 0. |
+| Element-dependent behaviour (against) | Met by the outcome-based indicator, but see reading below. |
+| `get_connections` for relationship elements such as `shared_db` (against) | Met once (`shared_db`, correct id). It was also attempted for the other four elements. |
+| Early `done` on some elements, tool calls on others (against) | Not met. |
+
+Per the rule "mixed pattern: report as mixed", the outcome is **mixed**. It
+neither supports nor speaks against a model-capability limit.
+
+**Reading of the baseline pattern.**
+
+- The tool *choice* is the same for every element: `search_knowledge`, then
+  `get_connections`. Four times Qwen wrote the template placeholder `<id>` from the
+  prompt example as the `component_id`, which is a `tool_error`. Only for
+  `shared_db` the id was real, so only there the loop went on (one more search,
+  then `budget_exhausted`). The difference between elements is whether the
+  argument was filled in correctly, not which tool was chosen.
+- The outcome-based indicator `element_dependent_behaviour: True` therefore
+  mixes choice and argument filling. The indicator
+  `tool_choice_same_over_common_prefix` below separates them and is `True`.
+- `tool_error` and copying a placeholder were not in the pre-registered lists.
+  They are not read into either direction. They show a problem with argument
+  filling, which is a different question from situation-dependent choice.
+- Our loop ends deepening at the first `ToolError` (`structured.py`, `_deepen`).
+  The `tool_error` endings are partly a product of that code. Llama never hit it.
+
+**Post hoc addition (not in the pre-registration).** After the first Qwen run
+`scripts/diagnostic_report.py` gained `attempted_tool_sequences`,
+`tool_choice_same_over_common_prefix` and `placeholder_argument_steps`, marked as
+post hoc in the report's `meta`. They were added because the outcome-based
+indicator could not tell choice from argument errors. Both runs were re-reported
+with them into `posthoc/` of each run directory; the original reports are
+unchanged. The pre-registered reading rules were not touched.
+
+| (both runs) | `agent_pev` | `agent_pev_adaptivedeepen` |
+|---|---|---|
+| `attempted_tool_sequences` | `search_knowledge > get_connections` x4; `search_knowledge > get_connections > search_knowledge` x1 | `done` x5 |
+| `tool_choice_same_over_common_prefix` | True | True |
+| `placeholder_argument_steps` | 4 | 0 |
+
+**Limits.**
+
+- One architecture, one model, one prompt pair, two identical runs. The two runs
+  are one observation, not two.
+- Qwen planned five priorities (`tenant_user` in addition), the pre-registration
+  assumed four. This does not change any criterion.
+- **Format caveat.** The agents ask for a JSON action as plain text and parse it.
+  They do not use native tool calling, which Ollama lists as a capability of this
+  Qwen build (`capabilities: completion, tools`). A difference or similarity with
+  llama under this format says little about either model's native tool-calling
+  ability. Whether native tool calling changes the placeholder errors or the
+  `done` pattern is untested.
+- **Context length.** The client sets no `num_ctx`, so Ollama ran Qwen with its
+  default of 4096 tokens (`ollama ps`), although the model supports 32 768. A
+  prompt longer than that is truncated by the server. Whether this played a role
+  in the placeholder errors is not known; it is a possible confound for this
+  model and the same default applied to the llama runs.
+- The baseline prompt contains the literal template
+  `{"component_id": "<id>"}`. Copying it is a plausible prompt-design effect as
+  well as a model effect. The diagnostic cannot separate the two.
+- Detection quality (reported, not used to rank models): `agent_pev` F1 0.30
+  (TP/FP/FN 4/11/8), `agent_pev_adaptivedeepen` F1 0.41 (6/11/6); calls 34 vs 28.
+
+**What this does and does not say.** Qwen reproduces the llama pattern under the
+adaptive prompt (always `done`) and shows a uniform tool sequence under the
+baseline prompt, with failures at argument filling. Nothing in the data shows
+element-dependent tool choice from either model. It does not show that a stronger
+or differently prompted model could not, and it does not decide between the two
+open explanations (model capability versus prompt and loop design).
 
 ## How to run the measurements
 
